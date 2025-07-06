@@ -1,1 +1,18 @@
 "arc-extension/\narc-backend/\narc-web-dashboard/" 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment
+env/
+.venv/
+
+# Django stuff
+*.sqlite3
+db.sqlite3
+*.log
+
+# VS Code
+.vscode/
