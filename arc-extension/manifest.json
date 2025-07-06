@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Arc Wallet",
+  "description": "Crypto wallet for shopping via Curve",
+  "version": "1.0",
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icons/icon128.png"
+  },
+  "permissions": ["storage", "scripting", "activeTab","storage", "tabs", "scripting"],
+  "host_permissions": ["<all_urls>"],
+  "icons": {
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+  {
+    "matches": ["http://localhost:5173/*"],
+    "js": ["content.js"]
+  }
+  ],
+  "background": {
+  "service_worker": "background.js"
+}
+
+  
+  
+}
