@@ -6,8 +6,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         type: "popup",
         width: 400,
         height: 600,
-        top: Math.round(screen.height / 2 - 300),
-        left: Math.round(screen.width / 2 - 200)
       });
     });
   }
