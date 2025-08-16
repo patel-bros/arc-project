@@ -1,15 +1,13 @@
-from solana.keypair import Keypair
-from solana.rpc.api import Client
+import random
+import string
 import base64
 
-client = Client("https://api.devnet.solana.com")
-
 def generate_wallet():
-    keypair = Keypair()
-    public_key = str(keypair.public_key)
-    secret_key = base64.b64encode(bytes(keypair.secret_key)).decode()
+    """Generate a dummy wallet for development purposes"""
+    # Generate a dummy public key
+    public_key = 'dummy_' + ''.join(random.choices(string.ascii_letters + string.digits, k=44))
     
-    # Airdrop 1 SOL for free testing
-    client.request_airdrop(keypair.public_key, 1000000000)
-
-    return public_key, secret_key
+    # Generate a dummy secret key as a list of integers (simulating Solana keypair)
+    secret_key_list = [random.randint(0, 255) for _ in range(32)]
+    
+    return public_key, secret_key_list

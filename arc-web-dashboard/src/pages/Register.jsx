@@ -5,18 +5,33 @@ import { useNavigate } from "react-router-dom"
 const Register = () => {
   const navigate = useNavigate()
   const [form, setForm] = useState({ username: "", email: "", password: "" })
+  const [image, setImage] = useState(null)
 
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value })
 
+  const handleImageChange = (e) => {
+    setImage(e.target.files[0])
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
-      await axios.post("http://localhost:8000/api/register/", form)
+      const formData = new FormData()
+      formData.append("username", form.username)
+      formData.append("email", form.email)
+      formData.append("password", form.password)
+      if (image) formData.append("image", image)
+      const res = await axios.post("http://localhost:8000/api/register/", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
       alert("Registration successful!")
-      navigate("/")
+      // Store token and user info
+      localStorage.setItem("token", res.data.token)
+      localStorage.setItem("user", JSON.stringify(res.data.user))
+      navigate("/dashboard")
     } catch (error) {
-      alert("Error: " + error.response?.data?.email || "Try again")
+      alert("Error: " + (error.response?.data?.error || "Try again"))
     }
   }
 
@@ -26,7 +41,8 @@ const Register = () => {
         <h2 className="text-2xl font-bold mb-4">Register</h2>
         <input className="w-full p-2 mb-2 border" name="username" placeholder="Username" onChange={handleChange} required />
         <input className="w-full p-2 mb-2 border" name="email" placeholder="Email" type="email" onChange={handleChange} required />
-        <input className="w-full p-2 mb-4 border" name="password" placeholder="Password" type="password" onChange={handleChange} required />
+        <input className="w-full p-2 mb-2 border" name="password" placeholder="Password" type="password" onChange={handleChange} required />
+        <input className="w-full p-2 mb-4 border" name="image" type="file" accept="image/*" onChange={handleImageChange} />
         <button className="w-full bg-blue-600 text-white p-2 rounded">Register</button>
       </form>
     </div>
