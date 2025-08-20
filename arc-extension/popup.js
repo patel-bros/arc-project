@@ -64,31 +64,62 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // API helpers
-  async function fetchWallet(token) {
+  async function fetchPortfolio(token) {
     try {
-      console.log('Fetching wallet with token:', token); // Debug log
-      const res = await fetch('http://localhost:8000/api/wallet/', {
+      console.log('Fetching portfolio with token:', token);
+      const res = await fetch('http://localhost:8000/api/portfolio/', {
         method: 'GET',
         headers: { 
-          'Authorization': `Token ${token}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
       
-      console.log('Wallet fetch response status:', res.status); // Debug log
+      console.log('Portfolio fetch response status:', res.status);
       
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       }
       
       const data = await res.json();
-      console.log('Wallet API response:', data); // Debug log
+      console.log('Portfolio API response:', data);
       
       if (data.error) {
         throw new Error(data.error);
       }
       
-      return data.wallet; // Return the wallet object from the response
+      return data.portfolio;
+    } catch (error) {
+      console.error('fetchPortfolio error:', error);
+      return { 
+        wallets: [],
+        total_value_usd: 0,
+        error: error.message
+      };
+    }
+  }
+
+  async function fetchWallet(token) {
+    try {
+      const portfolio = await fetchPortfolio(token);
+      if (portfolio.error) {
+        throw new Error(portfolio.error);
+      }
+      
+      // Find ARC wallet from portfolio
+      const arcWallet = portfolio.wallets.find(w => w.symbol === 'ARC');
+      if (!arcWallet) {
+        throw new Error('ARC wallet not found');
+      }
+      
+      return {
+        public_key: arcWallet.public_key,
+        balance: arcWallet.balance,
+        value_usd: arcWallet.value_usd,
+        network: arcWallet.network || 'mainnet',
+        symbol: arcWallet.symbol,
+        name: arcWallet.name
+      };
     } catch (error) {
       console.error('fetchWallet error:', error);
       return { 
@@ -100,13 +131,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   async function fetchCryptos() {
     try {
-      const res = await fetch('http://localhost:8000/api/cryptos/');
+      const res = await fetch('http://localhost:8000/api/market-data/');
       const data = await res.json();
-      console.log('Cryptos API response:', data); // Debug log
-      return data.cryptos || [];
+      console.log('Market data API response:', data);
+      return data.market_data || [];
     } catch (error) {
       console.error('fetchCryptos error:', error);
-      return []; // Return empty array on error
+      return [];
     }
   }
   async function login(username, password) {
@@ -117,7 +148,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         body: JSON.stringify({ username, password })
       });
       const data = await res.json();
-      console.log('Login response:', data); // Debug log
+      console.log('Login response:', data);
       
       if (data.token) {
         await setToken(data.token);
@@ -154,7 +185,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function logout(token) {
     await fetch('http://localhost:8000/api/logout/', {
       method: 'POST',
-      headers: { 'Authorization': `Token ${token}` }
+      headers: { 'Authorization': `Bearer ${token}` }
     });
     await clearToken();
   }
@@ -163,19 +194,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     formData.append('image', imageData);
     const res = await fetch('http://localhost:8000/api/face-auth/', {
       method: 'POST',
-      headers: { 'Authorization': `Token ${token}` },
+      headers: { 'Authorization': `Bearer ${token}` },
       body: formData
     });
     return (await res.json()).face_ok;
   }
-  async function initiatePayment(token, toAddress, amount, faceOk) {
-    const res = await fetch('http://localhost:8000/api/payment/initiate/', {
+  async function createTransaction(token, toAddress, amount, transactionType = 'transfer') {
+    const res = await fetch('http://localhost:8000/api/transactions/', {
       method: 'POST',
       headers: {
-        'Authorization': `Token ${token}`,
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ to_address: toAddress, amount, face_ok: faceOk })
+      body: JSON.stringify({ 
+        to_address: toAddress, 
+        amount: amount,
+        crypto_symbol: 'ARC',
+        transaction_type: transactionType,
+        memo: `Extension payment to ${toAddress}`
+      })
     });
     return await res.json();
   }
@@ -282,10 +319,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             paymentStatus.innerText = 'Processing payment...';
             
             // For demo, use merchant_name = 'curve-merchant'
-            const result = await manualTransfer(token, 'curve-merchant', curveAmount);
-            if (result.message) {
+            const result = await createTransaction(token, 'curve-merchant', curveAmount, 'purchase');
+            if (result.transaction && result.transaction.tx_hash) {
               // Show initial success message
-              paymentStatus.innerText = `✅ Payment Successful!\nAmount: ${curveAmount} ARC\nTo: Curve Merchant`;
+              paymentStatus.innerText = `✅ Payment Successful!\nAmount: ${curveAmount} ARC\nTo: Curve Merchant\nTx: ${result.transaction.tx_hash.substring(0, 10)}...`;
               
               // Send success message to Curve
               chrome.runtime.sendMessage({ 
@@ -293,7 +330,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 payload: { 
                   status: 'success',
                   amount: curveAmount,
-                  transactionId: result.transaction_id || Date.now()
+                  transactionId: result.transaction.tx_hash,
+                  currency: 'ARC'
                 } 
               });
               
@@ -366,7 +404,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         
         const cryptos = await fetchCryptos();
-        document.getElementById('crypto-list').innerHTML = cryptos.map(c => `<div>${c.symbol}: ${c.name}</div>`).join('');
+        const cryptoList = document.getElementById('crypto-list');
+        if (cryptoList) {
+          cryptoList.innerHTML = cryptos.map(crypto => 
+            `<div class="crypto-item">
+              <span class="crypto-symbol">${crypto.base_symbol}</span>
+              <span class="crypto-price">$${crypto.current_price?.toFixed(6) || '0.00'}</span>
+              <span class="crypto-change ${crypto.price_change_24h >= 0 ? 'positive' : 'negative'}">
+                ${crypto.price_change_24h >= 0 ? '+' : ''}${crypto.price_change_24h?.toFixed(2) || '0.00'}%
+              </span>
+            </div>`
+          ).join('');
+        }
         
         if (manualReceiveAddress) {
           manualReceiveAddress.innerText = wallet.public_key || 'Not available';

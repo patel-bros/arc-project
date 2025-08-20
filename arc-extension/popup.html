@@ -7,46 +7,145 @@
 </head>
 <body>
   <div class="container">
-    <h2>Arc Wallet</h2>
-    <div id="login-section">
-      <input type="text" id="username" placeholder="Username" />
-      <input type="email" id="email" placeholder="Email" style="display:none;" />
-      <input type="password" id="password" placeholder="Password" />
-      <button id="loginBtn">Login</button>
-      <button id="registerBtn" style="display:none;">Register</button>
-      <p id="loginError" style="color:red;"></p>
-      <a href="#" id="toggleAuthMode">Don't have an account? Register</a>
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">
+        <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+        <span class="logo-text">Arc Wallet</span>
+      </div>
     </div>
-    <div id="wallet-section" style="display:none;">
-      <p id="address">Wallet: Loading...</p>
-      <p id="balance">Balance: 0</p>
-      <div id="crypto-list"></div>
-      <button id="logoutBtn">Logout</button>
-      <button id="showManualTransfer">Manual Transfer/Receive</button>
-      <button id="showMerchantWallet">Merchant Wallet</button>
+
+    <!-- Login Section -->
+    <div id="login-section" class="section">
+      <div class="form-group">
+        <input type="text" id="username" placeholder="Username" class="input-field" />
+        <input type="email" id="email" placeholder="Email" class="input-field" style="display:none;" />
+        <input type="password" id="password" placeholder="Password" class="input-field" />
+      </div>
+      <div class="button-group">
+        <button id="loginBtn" class="btn btn-primary">Login</button>
+        <button id="registerBtn" class="btn btn-primary" style="display:none;">Register</button>
+      </div>
+      <p id="loginError" class="error-text"></p>
+      <a href="#" id="toggleAuthMode" class="toggle-link">Don't have an account? Register</a>
     </div>
-    <div id="payment-section" style="display:none;">
-      <p id="payment-amount" style="font-size: 18px; font-weight: bold; text-align: center; margin-bottom: 20px; color: white;"></p>
-      <video id="video" width="320" height="240" autoplay style="display:block; margin: 0 auto; border-radius: 10px;"></video>
-      <button id="faceAuthBtn">Face Authenticate & Pay</button>
-      <p id="paymentStatus"></p>
+
+    <!-- Wallet Section -->
+    <div id="wallet-section" class="section" style="display:none;">
+      <div class="wallet-info">
+        <div class="balance-card">
+          <p id="address" class="wallet-address">Wallet: Loading...</p>
+          <p id="balance" class="wallet-balance">Balance: 0 ARC</p>
+        </div>
+      </div>
+      
+      <div class="crypto-list-container">
+        <h3 class="section-title">Live Market Data</h3>
+        <div id="crypto-list" class="crypto-list"></div>
+      </div>
+
+      <div class="action-buttons">
+        <button id="showManualTransfer" class="btn btn-secondary">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16l-4-4m0 0l4-4m-4 4h18" />
+          </svg>
+          Transfer
+        </button>
+        <button id="showMerchantWallet" class="btn btn-secondary">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+          </svg>
+          Merchant
+        </button>
+        <button id="logoutBtn" class="btn btn-danger">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          Logout
+        </button>
+      </div>
     </div>
-    <div id="manual-section" style="display:none;">
-      <h3>Manual Transfer</h3>
-      <input type="text" id="manualToAddress" placeholder="Recipient Address" />
-      <input type="number" id="manualAmount" placeholder="Amount" />
-      <button id="manualSendBtn">Send</button>
-      <h3>Receive</h3>
-      <p>Your Address: <span id="manualReceiveAddress"></span></p>
-      <button id="manualBackBtn">Back</button>
-      <p id="manualStatus"></p>
+
+    <!-- Payment Section -->
+    <div id="payment-section" class="section" style="display:none;">
+      <div class="payment-header">
+        <h2 class="payment-title">Secure Payment</h2>
+        <p id="payment-amount" class="payment-amount"></p>
+      </div>
+      
+      <div class="camera-container">
+        <video id="video" class="camera-video" autoplay></video>
+        <div class="camera-overlay">
+          <div class="face-indicator"></div>
+        </div>
+      </div>
+      
+      <button id="faceAuthBtn" class="btn btn-success">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        Authenticate & Pay
+      </button>
+      
+      <div id="paymentStatus" class="payment-status"></div>
     </div>
-    <div id="merchant-section" style="display:none;">
-      <h3>Merchant Wallet</h3>
-      <input type="text" id="merchantName" placeholder="Merchant Name" />
-      <button id="merchantFetchBtn">Fetch Wallet</button>
-      <div id="merchantWalletInfo"></div>
-      <button id="merchantBackBtn">Back</button>
+
+    <!-- Manual Transfer Section -->
+    <div id="manual-section" class="section" style="display:none;">
+      <div class="section-header">
+        <button id="manualBackBtn" class="btn btn-back">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <h3 class="section-title">Transfer Funds</h3>
+      </div>
+      
+      <div class="transfer-form">
+        <div class="form-group">
+          <label class="form-label">Recipient Address</label>
+          <input type="text" id="manualToAddress" placeholder="Enter wallet address" class="input-field" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Amount (ARC)</label>
+          <input type="number" id="manualAmount" placeholder="0.00" class="input-field" />
+        </div>
+        <button id="manualSendBtn" class="btn btn-primary">Send ARC</button>
+      </div>
+
+      <div class="receive-section">
+        <h4 class="subsection-title">Receive Funds</h4>
+        <div class="receive-address">
+          <label class="form-label">Your Address:</label>
+          <span id="manualReceiveAddress" class="address-display"></span>
+        </div>
+      </div>
+      
+      <div id="manualStatus" class="status-message"></div>
+    </div>
+
+    <!-- Merchant Section -->
+    <div id="merchant-section" class="section" style="display:none;">
+      <div class="section-header">
+        <button id="merchantBackBtn" class="btn btn-back">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <h3 class="section-title">Merchant Wallet</h3>
+      </div>
+      
+      <div class="merchant-form">
+        <div class="form-group">
+          <label class="form-label">Merchant Name</label>
+          <input type="text" id="merchantName" placeholder="Enter merchant name" class="input-field" />
+        </div>
+        <button id="merchantFetchBtn" class="btn btn-primary">Fetch Wallet Info</button>
+      </div>
+      
+      <div id="merchantWalletInfo" class="merchant-info"></div>
     </div>
   </div>
   <script src="popup.js"></script>

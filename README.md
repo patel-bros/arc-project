@@ -1,6 +1,20 @@
-# Arc Project
+# ARC Project
 
-Arc Project is a full-stack crypto wallet and payment platform for shopping via Curve, featuring facial recognition for user authentication, Solana blockchain integration, and a browser extension for seamless payments.
+ARC Project is a full-stack crypto wallet and payment platform for shopping via Curve, featuring facial recognition for user authentication, Solana blockchain integration, and a browser extension for seamless payments.
+
+## 🎨 Brand Identity
+
+The ARC platform features a professional brand identity with the official ARC logo integrated throughout the application:
+
+- **Logo Location:** `/public/arc.png` in web dashboard
+- **Integration Points:**
+  - Web dashboard sidebar navigation
+  - Login page header
+  - Registration page header
+  - Browser favicon
+  - Application title and branding
+
+The logo represents the "ARC" brand - symbolizing a bridge between traditional finance and cryptocurrency, with a focus on growth, connection, and innovation.
 
 ## Project Structure
 

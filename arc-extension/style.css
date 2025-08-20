@@ -1,3 +1,5 @@
+/* Arc Wallet Extension Styles - Professional Design */
+
 * {
   margin: 0;
   padding: 0;
@@ -5,204 +7,461 @@
 }
 
 body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  width: 400px;
-  min-height: 600px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  overflow: hidden;
-  position: relative;
-}
-
-body::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: 
-    radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 75% 75%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
-  animation: float 20s ease-in-out infinite;
-}
-
-@keyframes float {
-  0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-20px) rotate(180deg); }
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 50%, #0f0f23 100%);
+  color: #ffffff;
+  min-height: 100vh;
+  overflow-x: hidden;
 }
 
 .container {
-  position: relative;
-  z-index: 10;
-  padding: 30px 25px;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-}
-
-h2 {
-  color: white;
-  font-size: 28px;
-  font-weight: 600;
-  margin-bottom: 40px;
-  text-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-  letter-spacing: 1px;
-}
-
-#login-section {
-  background: rgba(255, 255, 255, 0.15);
+  width: 380px;
+  min-height: 500px;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(20px);
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 35px 30px;
-  box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  width: 100%;
-  max-width: 350px;
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 0;
 }
 
-input[type="text"],
-input[type="email"],
-input[type="password"],
-input[type="number"] {
-  width: 100%;
-  padding: 15px 20px;
+/* Header */
+.header {
+  background: rgba(0, 0, 0, 0.4);
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-icon {
+  width: 24px;
+  height: 24px;
+  color: #8b5cf6;
+}
+
+.logo-text {
+  font-size: 18px;
+  font-weight: 700;
+  background: linear-gradient(45deg, #8b5cf6, #06b6d4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Sections */
+.section {
+  padding: 20px;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin-bottom: 20px;
-  border: none;
-  border-radius: 15px;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
+}
+
+.section-title {
   font-size: 16px;
-  transition: all 0.3s ease;
-  outline: none;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0;
 }
 
-input[type="text"]::placeholder,
-input[type="email"]::placeholder,
-input[type="password"]::placeholder,
-input[type="number"]::placeholder {
-  color: rgba(255, 255, 255, 0.7);
+.subsection-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e5e7eb;
+  margin-bottom: 12px;
 }
 
-input[type="text"]:focus,
-input[type="email"]:focus,
-input[type="password"]:focus,
-input[type="number"]:focus {
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  box-shadow: 
-    0 0 20px rgba(255, 255, 255, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
+/* Form Elements */
+.form-group {
+  margin-bottom: 16px;
 }
 
-button {
+.form-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: #9ca3af;
+  margin-bottom: 6px;
+}
+
+.input-field {
   width: 100%;
-  padding: 15px 20px;
-  margin: 8px 0;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 12px;
+  color: #ffffff;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.input-field::placeholder {
+  color: #6b7280;
+}
+
+/* Buttons */
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
   border: none;
-  border-radius: 15px;
-  font-size: 16px;
+  border-radius: 12px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  width: 100%;
+  text-decoration: none;
 }
 
-#loginBtn {
-  background: linear-gradient(45deg, #ff6b6b, #ee5a52);
-  color: white;
-  box-shadow: 0 8px 25px rgba(238, 90, 82, 0.3);
+.btn-icon {
+  width: 16px;
+  height: 16px;
 }
 
-#registerBtn {
-  background: linear-gradient(45deg, #4ecdc4, #44a08d);
-  color: white;
-  box-shadow: 0 8px 25px rgba(78, 205, 196, 0.3);
+.btn-primary {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  color: #ffffff;
+  border: 1px solid rgba(139, 92, 246, 0.3);
 }
 
-button:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.2);
-}
-
-button:active {
+.btn-primary:hover {
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
   transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
 }
 
-button::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: left 0.5s ease;
+.btn-secondary {
+  background: rgba(139, 92, 246, 0.1);
+  color: #8b5cf6;
+  border: 1px solid rgba(139, 92, 246, 0.3);
 }
 
-button:hover::before {
-  left: 100%;
+.btn-secondary:hover {
+  background: rgba(139, 92, 246, 0.2);
+  border-color: #8b5cf6;
 }
 
-#loginError {
-  color: #ff6b6b;
-  margin-top: 15px;
-  font-size: 14px;
-  text-align: center;
-  background: rgba(255, 107, 107, 0.1);
-  padding: 10px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 107, 107, 0.2);
-  backdrop-filter: blur(10px);
+.btn-success {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #ffffff;
+  border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
-#wallet-section,
-#payment-section {
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(20px);
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 25px;
-  box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  width: 100%;
-  max-width: 350px;
-  color: white;
+.btn-success:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
 }
 
-#wallet-section p,
-#payment-section p {
-  margin: 10px 0;
-  font-size: 16px;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+.btn-danger {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #ffffff;
+  border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
-#logoutBtn,
-#faceAuthBtn {
-  background: linear-gradient(45deg, #667eea, #764ba2);
+.btn-danger:hover {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.btn-back {
+  background: rgba(107, 114, 128, 0.1);
+  color: #9ca3af;
+  border: 1px solid rgba(107, 114, 128, 0.3);
+  width: auto;
+  padding: 8px;
+}
+
+.btn-back:hover {
+  background: rgba(107, 114, 128, 0.2);
+  color: #ffffff;
+}
+
+.button-group {
+  display: flex;
+  gap: 12px;
+}
+
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   margin-top: 20px;
 }
 
-#paymentStatus {
-  text-align: center;
-  padding: 15px;
-  border-radius: 10px;
-  margin-top: 15px;
-  font-weight: 500;
-  white-space: pre-line;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-  line-height: 1.4;
+/* Wallet Info */
+.wallet-info {
+  margin-bottom: 20px;
+}
+
+.balance-card {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.wallet-address {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-bottom: 8px;
+  word-break: break-all;
+}
+
+.wallet-balance {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+}
+
+/* Crypto List */
+.crypto-list-container {
+  margin-bottom: 20px;
+}
+
+.crypto-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.crypto-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.1);
+  transition: background-color 0.2s ease;
+}
+
+.crypto-item:last-child {
+  border-bottom: none;
+}
+
+.crypto-item:hover {
+  background: rgba(139, 92, 246, 0.05);
+}
+
+.crypto-symbol {
+  font-weight: 600;
+  color: #ffffff;
   font-size: 14px;
+}
+
+.crypto-price {
+  font-size: 12px;
+  color: #e5e7eb;
+}
+
+.crypto-change {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.crypto-change.positive {
+  color: #10b981;
+}
+
+.crypto-change.negative {
+  color: #ef4444;
+}
+
+/* Payment Section */
+.payment-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.payment-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 8px;
+}
+
+.payment-amount {
+  font-size: 16px;
+  font-weight: 600;
+  color: #8b5cf6;
+  margin: 0;
+}
+
+.camera-container {
+  position: relative;
+  margin: 20px 0;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 2px solid rgba(139, 92, 246, 0.3);
+}
+
+.camera-video {
+  width: 100%;
+  height: 240px;
+  object-fit: cover;
+  display: block;
+}
+
+.camera-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.face-indicator {
+  width: 120px;
+  height: 120px;
+  border: 3px solid #8b5cf6;
+  border-radius: 50%;
+  border-style: dashed;
+  opacity: 0.7;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+/* Transfer Form */
+.transfer-form {
+  margin-bottom: 24px;
+}
+
+.receive-section {
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.receive-address {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.address-display {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 11px;
+  color: #e5e7eb;
+  word-break: break-all;
+  border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+/* Merchant Info */
+.merchant-form {
+  margin-bottom: 20px;
+}
+
+.merchant-info {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 12px;
+  padding: 16px;
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 12px;
+  color: #e5e7eb;
+  white-space: pre-line;
+  min-height: 60px;
+}
+
+/* Status Messages */
+.payment-status,
+.status-message {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 12px;
+  padding: 12px;
+  margin-top: 16px;
+  font-size: 12px;
+  color: #e5e7eb;
+  white-space: pre-line;
+  text-align: center;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.error-text {
+  color: #ef4444;
+  font-size: 12px;
+  margin: 8px 0;
+  text-align: center;
+}
+
+.toggle-link {
+  color: #8b5cf6;
+  text-decoration: none;
+  font-size: 12px;
+  text-align: center;
+  display: block;
+  margin-top: 12px;
+  transition: color 0.3s ease;
+}
+
+.toggle-link:hover {
+  color: #a78bfa;
+}
+
+/* Scrollbar Styling */
+.crypto-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.crypto-list::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.crypto-list::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.3);
+  border-radius: 2px;
+}
+
+.crypto-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.5);
+}
+
+/* Responsive adjustments */
+@media (max-width: 400px) {
+  .container {
+    width: 100%;
+    min-height: 100vh;
+  }
 }

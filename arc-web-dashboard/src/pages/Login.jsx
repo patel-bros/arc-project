@@ -41,10 +41,11 @@ const Login = () => {
           {/* Header Section */}
           <div className="text-center mb-6">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full glass-intense neon-cyan mb-4 hover-scale">
-              <svg className="w-8 h-8 text-cyan-400" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2L2 7v10c0 5.55 3.84 9.739 9 11 5.16-1.261 9-5.45 9-11V7l-10-5z"/>
-                <path d="M12 7L7 12l5 5 5-5-5-5z" fill="#00d4ff" opacity="0.7"/>
-              </svg>
+              <img 
+                src="/arc.png" 
+                alt="ARC Logo" 
+                className="w-10 h-10 object-contain"
+              />
             </div>
             <h1 className="text-3xl font-bold text-gradient-cyan mb-2">ARC EXCHANGE</h1>
             <p className="text-gray-400 text-base">Next-Gen Crypto Trading Platform</p>

@@ -86,12 +86,16 @@ const Layout = ({ children }) => {
           {/* Logo */}
           <div className="flex h-16 items-center justify-between px-4">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl flex items-center justify-center text-white font-bold text-lg border border-purple-400/30">
-                A
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center border border-purple-400/30 bg-white/10 backdrop-blur-sm">
+                <img 
+                  src="/arc.png" 
+                  alt="ARC Logo" 
+                  className="w-8 h-8 object-contain"
+                />
               </div>
               {sidebarOpen && (
                 <span className="text-white font-bold text-xl bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-                  Arc Exchange
+                  ARC Exchange
                 </span>
               )}
             </div>

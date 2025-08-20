@@ -75,9 +75,11 @@ const Register = () => {
           {/* Header Section */}
           <div className="text-center mb-6">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full glass-intense neon-purple mb-4 hover-scale">
-              <svg className="w-8 h-8 text-purple-400" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-              </svg>
+              <img 
+                src="/arc.png" 
+                alt="ARC Logo" 
+                className="w-10 h-10 object-contain"
+              />
             </div>
             <h1 className="text-3xl font-bold text-gradient-purple mb-2">Join ARC</h1>
             <p className="text-gray-400 text-base">Create Your Crypto Trading Account</p>
