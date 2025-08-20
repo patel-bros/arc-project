@@ -1,64 +1,544 @@
-from django.shortcuts import render
-from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
-from .models import User, Wallet, FaceData, Transaction, MerchantWallet, Order, Token
-from .serializers import UserSerializer, WalletSerializer
-from .utils import generate_wallet
+from rest_framework import status
+from rest_framework.authentication import BaseAuthentication
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from .serializers import UserSerializer, PortfolioSerializer, TradingPairSerializer, OrderSerializer, TradeSerializer, TransactionSerializer
+from .models import User, Token, Portfolio, CryptoWallet, TradingPair, Order, Trade, Transaction, MerchantWallet, FaceData, PriceHistory, CurveCart
+from .utils import generate_wallet, generate_transaction_hash, generate_order_id, generate_trade_id, initialize_trading_pairs, simulate_all_prices, calculate_portfolio_value, process_crypto_transfer, execute_market_order, get_crypto_name
+import hashlib
+import secrets
+import json
 import face_recognition
 import numpy as np
-import base64
-import secrets
-from datetime import datetime
-import json
-from rest_framework.decorators import authentication_classes
-from rest_framework.authentication import BaseAuthentication
-from rest_framework.permissions import IsAuthenticated, BasePermission
-from rest_framework.permissions import AllowAny
+from datetime import datetime, timedelta
 import random
+import uuid
 
-SYMBOLS = ["ARC", "BTC", "ETH"]
+# Constants
+SYMBOLS = ['BTC', 'ETH', 'ARC', 'SOL', 'USDT', 'BNB', 'ADA', 'DOT', 'LINK', 'LTC']
 
-# Custom permission class for MongoEngine User
-class IsMongoAuthenticated(BasePermission):
-    """
-    Custom permission class for MongoEngine User models
-    """
-    def has_permission(self, request, view):
-        # Check if user is authenticated and is not AnonymousUser
-        user = getattr(request, 'user', None)
-        if user is None:
-            return False
+# Authentication views
+@api_view(['POST'])
+def register(request):
+    try:
+        # Extract user data
+        username = request.data.get('username')
+        email = request.data.get('email')
+        password = request.data.get('password')
         
-        # Check if it's a valid MongoDB user (has username attribute and is not AnonymousUser)
-        if hasattr(user, 'username') and user.username != 'AnonymousUser':
-            return True
-            
-        return False
+        # Check if user already exists
+        if User.objects(username=username).first() or User.objects(email=email).first():
+            return Response({'error': 'Username or email already exists'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Hash password
+        hashed_password = hashlib.sha256(password.encode()).hexdigest()
+        
+        # Create user
+        user = User(username=username, email=email, password=hashed_password)
+        user.save()
+        
+        # Process face image if provided
+        if 'image' in request.FILES:
+            try:
+                image_file = request.FILES['image']
+                image = face_recognition.load_image_file(image_file)
+                face_encodings = face_recognition.face_encodings(image)
+                
+                if face_encodings:
+                    face_encoding = face_encodings[0]
+                    face_data = FaceData(user=user, encoding=face_encoding.tobytes())
+                    face_data.save()
+            except Exception as e:
+                print(f"Face processing error: {e}")
+        
+        # Create portfolio with default wallets
+        portfolio = Portfolio(user=user)
+        
+        # Create default crypto wallets
+        default_cryptos = ['BTC', 'ETH', 'ARC', 'USDT', 'SOL']
+        for crypto in default_cryptos:
+            public_key, private_key = generate_wallet()
+            wallet = CryptoWallet(
+                symbol=crypto,
+                name=get_crypto_name(crypto),
+                public_key=public_key,
+                private_key=json.dumps(private_key),
+                balance=1000.0 if crypto == 'USDT' else 0.1  # Start with some demo balance
+            )
+            portfolio.wallets.append(wallet)
+        
+        portfolio.save()
+        
+        # Create authentication token
+        token_value = secrets.token_hex(32)
+        token = Token(user=user, token=token_value)
+        token.save()
+        
+        return Response({
+            'message': 'Registration successful',
+            'token': token_value,
+            'user': UserSerializer(user).data
+        }, status=status.HTTP_201_CREATED)
+        
+    except Exception as e:
+        return Response({'error': f'Registration failed: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
-def register(request):
-    data = request.data.copy()
-    username = data.get('username')
-    email = data.get('email')
-    password = data.get('password')
-    image_file = request.FILES.get('image')
+def login(request):
+    try:
+        username = request.data.get('username')
+        password = request.data.get('password')
+        
+        # Hash the provided password
+        hashed_password = hashlib.sha256(password.encode()).hexdigest()
+        
+        # Find user
+        user = User.objects(username=username, password=hashed_password).first()
+        if not user:
+            # Try with email
+            user = User.objects(email=username, password=hashed_password).first()
+        
+        if not user:
+            return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        # Create or get existing token
+        token = Token.objects(user=user).first()
+        if not token:
+            token_value = secrets.token_hex(32)
+            token = Token(user=user, token=token_value)
+            token.save()
+        
+        return Response({
+            'message': 'Login successful',
+            'token': token.token,
+            'user': UserSerializer(user).data
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': f'Login failed: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    if not username or not email or not password:
-        return Response({'error': 'Missing required fields.'}, status=400)
-    if User.objects(username=username).first():
-        return Response({'error': 'Username already exists.'}, status=400)
-    if User.objects(email=email).first():
+# Portfolio and wallet management
+@api_view(['GET'])
+def get_portfolio(request):
+    try:
+        # Get user from token (simplified for now)
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        token_value = auth_header.replace('Bearer ', '')
+        token = Token.objects(token=token_value).first()
+        if not token:
+            return Response({'error': 'Invalid token'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        user = token.user
+        portfolio = Portfolio.objects(user=user).first()
+        
+        if not portfolio:
+            return Response({'error': 'Portfolio not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Calculate current portfolio value
+        total_value = calculate_portfolio_value(user)
+        
+        # Format wallet data with current values
+        wallets_data = []
+        for wallet in portfolio.wallets:
+            wallet_value_usd = 0.0
+            current_price = 0.0
+            
+            if wallet.symbol == 'USDT':
+                wallet_value_usd = wallet.balance
+                current_price = 1.0
+            else:
+                pair_name = f"{wallet.symbol}USDT"
+                trading_pair = TradingPair.objects(pair=pair_name).first()
+                if trading_pair:
+                    current_price = trading_pair.current_price
+                    wallet_value_usd = wallet.balance * current_price
+            
+            wallets_data.append({
+                'symbol': wallet.symbol,
+                'name': wallet.name,
+                'balance': wallet.balance,
+                'value_usd': wallet_value_usd,
+                'current_price': current_price,
+                'public_key': wallet.public_key,
+                'is_active': wallet.is_active
+            })
+        
+        return Response({
+            'portfolio': {
+                'total_value_usd': total_value,
+                'wallets': wallets_data,
+                'updated_at': portfolio.updated_at
+            }
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': f'Failed to get portfolio: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# Trading and market data
+@api_view(['GET'])
+def get_market_data(request):
+    try:
+        # Simulate fresh prices
+        updated_prices = simulate_all_prices()
+        
+        # Get all trading pairs
+        pairs = TradingPair.objects(is_active=True)
+        market_data = []
+        
+        for pair in pairs:
+            market_data.append({
+                'pair': pair.pair,
+                'base_symbol': pair.base_symbol,
+                'quote_symbol': pair.quote_symbol,
+                'current_price': pair.current_price,
+                'price_change_24h': pair.price_change_24h,
+                'volume_24h': pair.volume_24h,
+                'high_24h': pair.high_24h,
+                'low_24h': pair.low_24h,
+                'last_updated': pair.last_updated
+            })
+        
+        return Response({'market_data': market_data}, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': f'Failed to get market data: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+def place_order(request):
+    try:
+        # Get user from token
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        token_value = auth_header.replace('Bearer ', '')
+        token = Token.objects(token=token_value).first()
+        if not token:
+            return Response({'error': 'Invalid token'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        user = token.user
+        
+        # Extract order data
+        pair_name = request.data.get('pair')
+        order_type = request.data.get('order_type', 'market')
+        side = request.data.get('side')
+        quantity = float(request.data.get('quantity', 0))
+        price = float(request.data.get('price', 0)) if request.data.get('price') else None
+        
+        if not all([pair_name, side, quantity]):
+            return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if order_type == 'market':
+            # Execute market order immediately
+            success, message = execute_market_order(user, pair_name, side, quantity)
+            if success:
+                return Response({'message': message}, status=status.HTTP_200_OK)
+            else:
+                return Response({'error': message}, status=status.HTTP_400_BAD_REQUEST)
+        
+        else:
+            # Create limit order (for future implementation)
+            trading_pair = TradingPair.objects(pair=pair_name).first()
+            if not trading_pair:
+                return Response({'error': 'Trading pair not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+            order = Order(
+                user=user,
+                pair=trading_pair,
+                order_type=order_type,
+                side=side,
+                quantity=quantity,
+                price=price,
+                order_id=generate_order_id()
+            )
+            order.save()
+            
+            return Response({
+                'message': 'Limit order placed successfully',
+                'order_id': order.order_id
+            }, status=status.HTTP_201_CREATED)
+        
+    except Exception as e:
+        return Response({'error': f'Failed to place order: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+def get_order_history(request):
+    try:
+        # Get user from token
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        token_value = auth_header.replace('Bearer ', '')
+        token = Token.objects(token=token_value).first()
+        if not token:
+            return Response({'error': 'Invalid token'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        user = token.user
+        
+        # Get orders for this user
+        orders = Order.objects(user=user).order_by('-created_at')[:50]  # Last 50 orders
+        
+        orders_data = []
+        for order in orders:
+            orders_data.append({
+                'order_id': order.order_id,
+                'pair': order.pair.pair,
+                'order_type': order.order_type,
+                'side': order.side,
+                'quantity': order.quantity,
+                'price': order.price,
+                'filled_quantity': order.filled_quantity,
+                'status': order.status,
+                'created_at': order.created_at,
+                'updated_at': order.updated_at
+            })
+        
+        return Response({'orders': orders_data}, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': f'Failed to get order history: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# Curve Cart Integration
+@api_view(['POST'])
+def create_curve_cart(request):
+    try:
+        # Get user from token
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        token_value = auth_header.replace('Bearer ', '')
+        token = Token.objects(token=token_value).first()
+        if not token:
+            return Response({'error': 'Invalid token'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        user = token.user
+        
+        # Extract cart data
+        items = request.data.get('items', [])
+        total_amount = float(request.data.get('total_amount', 0))
+        merchant_name = request.data.get('merchant_name', 'curve')
+        
+        # Ensure Curve merchant exists
+        merchant = MerchantWallet.objects(merchant_name=merchant_name).first()
+        if not merchant:
+            # Create Curve merchant
+            merchant_user = User.objects(username=merchant_name).first()
+            if not merchant_user:
+                merchant_user = User(
+                    username=merchant_name,
+                    email=f"{merchant_name}@curve.com",
+                    password=hashlib.sha256("curve_default".encode()).hexdigest(),
+                    is_merchant=True,
+                    merchant_name=merchant_name
+                )
+                merchant_user.save()
+            
+            merchant = MerchantWallet(
+                merchant_name=merchant_name,
+                user=merchant_user,
+                business_name="Curve E-commerce",
+                website_url="https://curve.com"
+            )
+            
+            # Create merchant wallets
+            for crypto in ['BTC', 'ETH', 'ARC', 'USDT', 'SOL']:
+                public_key, private_key = generate_wallet()
+                wallet = CryptoWallet(
+                    symbol=crypto,
+                    name=get_crypto_name(crypto),
+                    public_key=public_key,
+                    private_key=json.dumps(private_key),
+                    balance=0.0
+                )
+                merchant.wallets.append(wallet)
+            
+            merchant.save()
+        
+        # Create cart
+        cart = CurveCart(
+            user=user,
+            items=items,
+            total_amount=total_amount,
+            merchant=merchant,
+            cart_id=f"CART_{int(datetime.utcnow().timestamp())}_{random.randint(1000, 9999)}"
+        )
+        cart.save()
+        
+        return Response({
+            'message': 'Cart created successfully',
+            'cart_id': cart.cart_id,
+            'merchant_wallets': [
+                {
+                    'symbol': wallet.symbol,
+                    'address': wallet.public_key
+                } for wallet in merchant.wallets
+            ]
+        }, status=status.HTTP_201_CREATED)
+        
+    except Exception as e:
+        return Response({'error': f'Failed to create cart: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+def process_curve_payment(request):
+    try:
+        cart_id = request.data.get('cart_id')
+        crypto_symbol = request.data.get('crypto_symbol')
+        
+        cart = CurveCart.objects(cart_id=cart_id).first()
+        if not cart:
+            return Response({'error': 'Cart not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        if cart.status != 'pending':
+            return Response({'error': 'Cart already processed'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Calculate crypto amount needed
+        pair_name = f"{crypto_symbol}USDT"
+        trading_pair = TradingPair.objects(pair=pair_name).first()
+        if not trading_pair:
+            return Response({'error': 'Crypto not supported'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        crypto_amount = cart.total_amount / trading_pair.current_price
+        
+        # Process transfer from user to merchant
+        success, message = process_crypto_transfer(
+            cart.user,
+            cart.merchant.user,
+            crypto_symbol,
+            crypto_amount,
+            f"Payment for cart {cart_id}"
+        )
+        
+        if success:
+            # Update cart status
+            cart.status = 'paid'
+            cart.crypto_payment = {
+                'symbol': crypto_symbol,
+                'amount': crypto_amount,
+                'tx_hash': generate_transaction_hash()
+            }
+            cart.updated_at = datetime.utcnow()
+            cart.save()
+            
+            # Update merchant total received
+            cart.merchant.total_received += cart.total_amount
+            cart.merchant.save()
+            
+            return Response({
+                'message': 'Payment processed successfully',
+                'transaction_hash': cart.crypto_payment['tx_hash'],
+                'crypto_amount': crypto_amount
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({'error': message}, status=status.HTTP_400_BAD_REQUEST)
+        
+    except Exception as e:
+        return Response({'error': f'Payment processing failed: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# Transaction history
+@api_view(['GET'])
+def get_transaction_history(request):
+    try:
+        # Get user from token
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        token_value = auth_header.replace('Bearer ', '')
+        token = Token.objects(token=token_value).first()
+        if not token:
+            return Response({'error': 'Invalid token'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        user = token.user
+        
+        # Get transactions for this user
+        transactions = Transaction.objects(user=user).order_by('-created_at')[:100]  # Last 100 transactions
+        
+        transactions_data = []
+        for tx in transactions:
+            transactions_data.append({
+                'tx_hash': tx.tx_hash,
+                'transaction_type': tx.transaction_type,
+                'crypto_symbol': tx.crypto_symbol,
+                'amount': tx.amount,
+                'to_address': tx.to_address,
+                'from_address': tx.from_address,
+                'status': tx.status,
+                'fee': tx.fee,
+                'memo': tx.memo,
+                'created_at': tx.created_at
+            })
+        
+        return Response({'transactions': transactions_data}, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': f'Failed to get transaction history: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# Initialize system
+@api_view(['POST'])
+def initialize_system(request):
+    try:
+        # Initialize trading pairs
+        initialize_trading_pairs()
+        
+        # Simulate initial prices
+        simulate_all_prices()
+        
+        return Response({'message': 'System initialized successfully'}, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': f'System initialization failed: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# Legacy endpoints for backward compatibility
+@api_view(['GET'])
+def get_wallet(request):
+    try:
+        username = request.GET.get('username')
+        crypto = request.GET.get('crypto', 'SOL')
+        
+        user = User.objects(username=username).first()
+        if not user:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        portfolio = Portfolio.objects(user=user).first()
+        if not portfolio:
+            return Response({'error': 'Portfolio not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        for wallet in portfolio.wallets:
+            if wallet.symbol == crypto:
+                return Response({
+                    'public_key': wallet.public_key,
+                    'balance': wallet.balance,
+                    'symbol': wallet.symbol
+                }, status=status.HTTP_200_OK)
+        
+        return Response({'error': f'{crypto} wallet not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+    except Exception as e:
+        return Response({'error': f'Failed to get wallet: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         return Response({'error': 'Email already exists.'}, status=400)
 
     # Create user
     user = User(username=username, email=email, password=password, created_at=datetime.utcnow())
     user.save()
 
-    # Create wallet with initial balance
+    # Create portfolio with initial ARC wallet
     public_key, private_key_list = generate_wallet()
-    wallet = Wallet(user=user, public_key=public_key, private_key=json.dumps(private_key_list), balance=1000.0, network='Solana Devnet')
-    wallet.save()
+    arc_wallet = CryptoWallet(
+        symbol='ARC',
+        name='Arc Token',
+        public_key=public_key,
+        private_key=json.dumps(private_key_list),
+        balance=1000.0,
+        network='Solana Devnet'
+    )
+    portfolio = Portfolio(user=user, wallets=[arc_wallet])
+    portfolio.save()
 
     # Register face data if image provided
     if image_file:
@@ -80,8 +560,8 @@ def register(request):
         'user': {'id': str(user.id), 'username': username, 'email': email},
         'wallet': {
             'public_key': public_key,
-            'balance': wallet.balance,
-            'network': wallet.network
+            'balance': arc_wallet.balance,
+            'network': arc_wallet.network
         },
         'token': token
     })
@@ -123,62 +603,46 @@ class SimpleTokenAuthentication(BaseAuthentication):
 
 @api_view(['POST'])
 @authentication_classes([SimpleTokenAuthentication])
-@permission_classes([IsMongoAuthenticated])
-def login(request):
-    data = request.data.copy()
-    username = data.get('username')
-    password = data.get('password')
-    user = User.objects(username=username, password=password).first()
-    if not user:
-        return Response({'error': 'Invalid credentials.'}, status=401)
-    
-    # Check if token already exists for user
-    token_obj = Token.objects(user=user).first()
-    if not token_obj:
-        # Create new token if none exists
-        token = secrets.token_hex(32)
-        token_obj = Token(user=user, token=token)
-        token_obj.save()
-    
-    return Response({'token': token_obj.token, 'user': {'id': str(user.id), 'username': user.username, 'email': user.email}})
-
-@api_view(['POST'])
-@authentication_classes([SimpleTokenAuthentication])
-@permission_classes([IsMongoAuthenticated])
+@permission_classes([IsAuthenticated])
 def create_wallet(request):
     user = request.user
-    if Wallet.objects(user=user).first():
-        return Response({'error': 'Wallet already exists.'}, status=400)
+    symbol = request.data.get('symbol', 'BTC')
+    name = request.data.get('name', 'Bitcoin')
+    
+    portfolio = Portfolio.objects(user=user).first()
+    if not portfolio:
+        portfolio = Portfolio(user=user, wallets=[])
+        portfolio.save()
+    
+    # Check if wallet for this symbol already exists
+    for wallet in portfolio.wallets:
+        if wallet.symbol == symbol:
+            return Response({'error': f'{symbol} wallet already exists.'}, status=400)
+    
     public_key, private_key_list = generate_wallet()
-    wallet = Wallet(user=user, public_key=public_key, private_key=json.dumps(private_key_list), balance=1000.0, network='Solana Devnet')
-    wallet.save()
-    return Response({'wallet': {'public_key': public_key, 'balance': wallet.balance, 'network': wallet.network}})
+    new_wallet = CryptoWallet(
+        symbol=symbol,
+        name=name,
+        public_key=public_key,
+        private_key=json.dumps(private_key_list),
+        balance=0.0,
+        network='mainnet'
+    )
+    
+    portfolio.wallets.append(new_wallet)
+    portfolio.save()
+    
+    return Response({
+        'wallet': {
+            'symbol': symbol,
+            'name': name,
+            'public_key': public_key,
+            'balance': new_wallet.balance,
+            'network': new_wallet.network
+        }
+    })
 
-@api_view(['GET'])
-@authentication_classes([SimpleTokenAuthentication])
-@permission_classes([IsMongoAuthenticated])
-def get_wallet(request):
-    try:
-        user = request.user
-        print(f"Get wallet for user: {user}, type: {type(user)}")  # Debug log
-        
-        if not user or not hasattr(user, 'username'):
-            return Response({'error': 'Invalid user authentication.'}, status=401)
-        
-        wallet = Wallet.objects(user=user).first()
-        if not wallet:
-            return Response({'error': 'No wallet found.'}, status=404)
-        
-        return Response({
-            'wallet': {
-                'public_key': wallet.public_key, 
-                'balance': wallet.balance, 
-                'network': wallet.network
-            }
-        })
-    except Exception as e:
-        print(f"Error in get_wallet: {e}")  # Debug log
-        return Response({'error': f'Database error: {str(e)}'}, status=500)
+
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -186,10 +650,23 @@ def get_wallet_by_id(request, user_id):
     user = User.objects(id=user_id).first()
     if not user:
         return Response({'error': 'User not found.'}, status=404)
-    wallet = Wallet.objects(user=user).first()
-    if not wallet:
+    
+    portfolio = Portfolio.objects(user=user).first()
+    if not portfolio or not portfolio.wallets:
         return Response({'error': 'No wallet found.'}, status=404)
-    return Response({'wallet': {'public_key': wallet.public_key, 'balance': wallet.balance, 'network': wallet.network}})
+    
+    # Return the first wallet (ARC wallet) for backward compatibility
+    wallet = portfolio.wallets[0]
+    
+    return Response({
+        'wallet': {
+            'public_key': wallet.public_key, 
+            'balance': wallet.balance, 
+            'network': wallet.network,
+            'symbol': wallet.symbol,
+            'name': wallet.name
+        }
+    })
 
 @api_view(['POST'])
 def register_face(request):
@@ -240,11 +717,21 @@ def logout_view(request):
 def user_info(request):
     try:
         custom_user = User.objects.get(username=request.user.username)
-        wallet = Wallet.objects.filter(user=custom_user).first()
+        portfolio = Portfolio.objects(user=custom_user).first()
+        wallet_data = None
+        if portfolio and portfolio.wallets:
+            wallet = portfolio.wallets[0]  # First wallet for backward compatibility
+            wallet_data = {
+                'symbol': wallet.symbol,
+                'name': wallet.name,
+                'public_key': wallet.public_key,
+                'balance': wallet.balance,
+                'network': wallet.network
+            }
         return Response({
             'username': custom_user.username,
             'email': custom_user.email,
-            'wallet': WalletSerializer(wallet).data if wallet else None
+            'wallet': wallet_data
         })
     except User.DoesNotExist:
         return Response({'error': 'User not found.'}, status=404)
@@ -254,10 +741,18 @@ def user_info(request):
 def wallet_info(request):
     try:
         custom_user = User.objects.get(username=request.user.username)
-        wallet = Wallet.objects.filter(user=custom_user).first()
-        if not wallet:
+        portfolio = Portfolio.objects(user=custom_user).first()
+        if not portfolio or not portfolio.wallets:
             return Response({'error': 'No wallet found.'}, status=404)
-        return Response(WalletSerializer(wallet).data)
+        
+        wallet = portfolio.wallets[0]  # First wallet for backward compatibility
+        return Response({
+            'symbol': wallet.symbol,
+            'name': wallet.name,
+            'public_key': wallet.public_key,
+            'balance': wallet.balance,
+            'network': wallet.network
+        })
     except User.DoesNotExist:
         return Response({'error': 'User not found.'}, status=404)
 
@@ -275,15 +770,27 @@ def crypto_list(request):
 
 @api_view(['POST'])
 @authentication_classes([SimpleTokenAuthentication])
-@permission_classes([IsMongoAuthenticated])
+@permission_classes([IsAuthenticated])
 def initiate_payment(request):
     user = request.user
-    wallet = Wallet.objects(user=user).first()
-    if not wallet:
+    portfolio = Portfolio.objects(user=user).first()
+    if not portfolio or not portfolio.wallets:
         return Response({'error': 'No wallet found.'}, status=404)
         
     to_address = request.data.get('to_address')
     amount = float(request.data.get('amount', 0))
+    symbol = request.data.get('symbol', 'ARC')  # Default to ARC
+    
+    # Find the specific wallet by symbol
+    wallet = None
+    for w in portfolio.wallets:
+        if w.symbol == symbol:
+            wallet = w
+            break
+    
+    if not wallet:
+        return Response({'error': f'No {symbol} wallet found.'}, status=404)
+        
     # Dummy face auth check (should be improved)
     face_ok = request.data.get('face_ok', False)
     if not face_ok:
@@ -292,9 +799,20 @@ def initiate_payment(request):
         return Response({'error': 'Insufficient balance.'}, status=400)
         
     wallet.balance -= amount
-    wallet.save()
-    # txn = Transaction.objects.create(wallet=wallet, to_address=to_address, amount=amount, status='success')
-    return Response({'message': 'Payment successful', 'transaction_id': 'dummy_txn_id'})
+    portfolio.save()
+    
+    # Create transaction record
+    txn = Transaction(
+        user=user,
+        transaction_type='transfer',
+        crypto_symbol=symbol,
+        amount=amount,
+        to_address=to_address,
+        status='confirmed'
+    )
+    txn.save()
+    
+    return Response({'message': 'Payment successful', 'transaction_id': str(txn.id)})
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -311,19 +829,22 @@ def payment_status(request):
 
 @api_view(['GET'])
 @authentication_classes([SimpleTokenAuthentication])
-@permission_classes([IsMongoAuthenticated])
+@permission_classes([IsAuthenticated])
 def transaction_history(request):
     user = request.user
-    wallet = Wallet.objects(user=user).first()
-    if not wallet:
-        return Response({'error': 'No wallet found.'}, status=404)
-    txns = Transaction.objects(wallet=wallet).order_by('-timestamp')
+    portfolio = Portfolio.objects(user=user).first()
+    if not portfolio:
+        return Response({'error': 'No portfolio found.'}, status=404)
+        
+    txns = Transaction.objects(user=user).order_by('-created_at')
     txn_list = [
         {
             'id': str(txn.id),
             'to_address': txn.to_address,
             'amount': txn.amount,
-            'timestamp': txn.timestamp,
+            'symbol': txn.crypto_symbol,
+            'type': txn.transaction_type,
+            'timestamp': txn.created_at,
             'status': txn.status
         }
         for txn in txns
@@ -332,7 +853,7 @@ def transaction_history(request):
 
 @api_view(['POST'])
 @authentication_classes([SimpleTokenAuthentication])
-@permission_classes([IsMongoAuthenticated])
+@permission_classes([IsAuthenticated])
 def face_auth(request):
     user = request.user
     image_file = request.FILES.get('image')
@@ -352,63 +873,159 @@ def face_auth(request):
 
 @api_view(['POST'])
 @authentication_classes([SimpleTokenAuthentication])
-@permission_classes([IsMongoAuthenticated])
+@permission_classes([IsAuthenticated])
 def buy_crypto(request):
     user = request.user
-    wallet = Wallet.objects(user=user).first()
-    if not wallet:
-        return Response({'error': 'No wallet found.'}, status=404)
+    portfolio = Portfolio.objects(user=user).first()
+    if not portfolio:
+        return Response({'error': 'No portfolio found.'}, status=404)
+        
     amount = float(request.data.get('amount', 0))
+    symbol = request.data.get('symbol', 'ARC')
+    
     if amount <= 0:
         return Response({'error': 'Invalid amount.'}, status=400)
+    
+    # Find the specific wallet by symbol
+    wallet = None
+    for w in portfolio.wallets:
+        if w.symbol == symbol:
+            wallet = w
+            break
+    
+    if not wallet:
+        return Response({'error': f'No {symbol} wallet found.'}, status=404)
+        
     wallet.balance += amount
-    wallet.save()
+    portfolio.save()
+    
+    # Create transaction record
+    txn = Transaction(
+        user=user,
+        transaction_type='deposit',
+        crypto_symbol=symbol,
+        amount=amount,
+        status='confirmed'
+    )
+    txn.save()
+    
     return Response({'message': 'Crypto bought successfully.', 'balance': wallet.balance})
 
 @api_view(['POST'])
 @authentication_classes([SimpleTokenAuthentication])
-@permission_classes([IsMongoAuthenticated])
+@permission_classes([IsAuthenticated])
 def sell_crypto(request):
     user = request.user
-    wallet = Wallet.objects(user=user).first()
-    if not wallet:
-        return Response({'error': 'No wallet found.'}, status=404)
+    portfolio = Portfolio.objects(user=user).first()
+    if not portfolio:
+        return Response({'error': 'No portfolio found.'}, status=404)
+        
     amount = float(request.data.get('amount', 0))
+    symbol = request.data.get('symbol', 'ARC')
+    
     if amount <= 0:
         return Response({'error': 'Invalid amount.'}, status=400)
+    
+    # Find the specific wallet by symbol
+    wallet = None
+    for w in portfolio.wallets:
+        if w.symbol == symbol:
+            wallet = w
+            break
+    
+    if not wallet:
+        return Response({'error': f'No {symbol} wallet found.'}, status=404)
+        
     if wallet.balance < amount:
         return Response({'error': 'Insufficient balance.'}, status=400)
+        
     wallet.balance -= amount
-    wallet.save()
+    portfolio.save()
+    
+    # Create transaction record
+    txn = Transaction(
+        user=user,
+        transaction_type='withdraw',
+        crypto_symbol=symbol,
+        amount=amount,
+        status='confirmed'
+    )
+    txn.save()
+    
     return Response({'message': 'Crypto sold successfully.', 'balance': wallet.balance})
 
 @api_view(['POST'])
 @authentication_classes([SimpleTokenAuthentication])
-@permission_classes([IsMongoAuthenticated])
+@permission_classes([IsAuthenticated])
 def transfer_to_merchant(request):
     user = request.user
-    wallet = Wallet.objects(user=user).first()
-    if not wallet:
-        return Response({'error': 'No wallet found.'}, status=404)
+    portfolio = Portfolio.objects(user=user).first()
+    if not portfolio:
+        return Response({'error': 'No portfolio found.'}, status=404)
+        
     merchant_name = request.data.get('merchant_name')
     amount = float(request.data.get('amount', 0))
+    symbol = request.data.get('symbol', 'ARC')
     face_ok = request.data.get('face_ok', False)
+    
     if not merchant_name or amount <= 0:
         return Response({'error': 'Invalid merchant or amount.'}, status=400)
     if not face_ok:
         return Response({'error': 'Face authentication failed.'}, status=403)
-    if wallet.balance < amount:
+    
+    # Find user's wallet
+    user_wallet = None
+    for w in portfolio.wallets:
+        if w.symbol == symbol:
+            user_wallet = w
+            break
+    
+    if not user_wallet:
+        return Response({'error': f'No {symbol} wallet found.'}, status=404)
+        
+    if user_wallet.balance < amount:
         return Response({'error': 'Insufficient balance.'}, status=400)
+    
     merchant_wallet = MerchantWallet.objects(merchant_name=merchant_name).first()
     if not merchant_wallet:
         return Response({'error': 'Merchant wallet not found.'}, status=404)
+    
+    # Find or create merchant's crypto wallet
+    merchant_crypto_wallet = None
+    for w in merchant_wallet.wallets:
+        if w.symbol == symbol:
+            merchant_crypto_wallet = w
+            break
+    
+    if not merchant_crypto_wallet:
+        # Create new crypto wallet for merchant
+        public_key, private_key_list = generate_wallet()
+        merchant_crypto_wallet = CryptoWallet(
+            symbol=symbol,
+            name=f'{symbol} Wallet',
+            public_key=public_key,
+            private_key=json.dumps(private_key_list),
+            balance=0.0,
+            network='mainnet'
+        )
+        merchant_wallet.wallets.append(merchant_crypto_wallet)
+    
     # Transfer
-    wallet.balance -= amount
-    merchant_wallet.balance += amount
-    wallet.save()
+    user_wallet.balance -= amount
+    merchant_crypto_wallet.balance += amount
+    portfolio.save()
     merchant_wallet.save()
-    txn = Transaction(wallet=wallet, to_address=merchant_wallet.public_key, amount=amount, status='success')
+    
+    txn = Transaction(
+        user=user,
+        transaction_type='transfer',
+        crypto_symbol=symbol,
+        amount=amount,
+        to_address=merchant_crypto_wallet.public_key,
+        status='confirmed'
+    )
     txn.save()
+    
     return Response({'message': 'Payment successful', 'transaction_id': str(txn.id)})
 
 @api_view(['POST'])
@@ -419,41 +1036,73 @@ def create_merchant_wallet(request):
         return Response({'error': 'Merchant name required.'}, status=400)
     if MerchantWallet.objects(merchant_name=merchant_name).first():
         return Response({'error': 'Merchant wallet already exists.'}, status=400)
+    
+    # Create initial ARC wallet for merchant
     public_key, private_key_list = generate_wallet()
-    merchant_wallet = MerchantWallet(
-        merchant_name=merchant_name,
+    arc_wallet = CryptoWallet(
+        symbol='ARC',
+        name='Arc Token',
         public_key=public_key,
         private_key=json.dumps(private_key_list),
         balance=0.0,
         network='Solana Devnet'
     )
+    
+    merchant_wallet = MerchantWallet(
+        merchant_name=merchant_name,
+        wallets=[arc_wallet],
+        is_active=True
+    )
     merchant_wallet.save()
+    
     return Response({'merchant_wallet': {
         'merchant_name': merchant_name,
         'public_key': public_key,
-        'balance': merchant_wallet.balance,
-        'network': merchant_wallet.network
+        'balance': arc_wallet.balance,
+        'network': arc_wallet.network
     }})
 
 # Auto-create curve-merchant wallet if it doesn't exist
 def ensure_curve_merchant_exists():
     if not MerchantWallet.objects(merchant_name='curve-merchant').first():
+        # First create a merchant user
+        merchant_user = User.objects(username='curve-merchant').first()
+        if not merchant_user:
+            merchant_user = User(
+                username='curve-merchant',
+                email='merchant@curve.com',
+                password=hashlib.sha256("curve_default".encode()).hexdigest(),
+                is_merchant=True,
+                merchant_name='curve-merchant',
+                kyc_verified=True
+            )
+            merchant_user.save()
+        
         public_key, private_key_list = generate_wallet()
-        merchant_wallet = MerchantWallet(
-            merchant_name='curve-merchant',
+        arc_wallet = CryptoWallet(
+            symbol='ARC',
+            name='Arc Token',
             public_key=public_key,
             private_key=json.dumps(private_key_list),
             balance=0.0,
             network='Solana Devnet'
         )
+        merchant_wallet = MerchantWallet(
+            merchant_name='curve-merchant',
+            user=merchant_user,
+            wallets=[arc_wallet],
+            business_name='Curve Marketplace',
+            website_url='https://curve.example.com',
+            is_active=True
+        )
         merchant_wallet.save()
         print("Created curve-merchant wallet")
 
-# Call this when the server starts
-try:
-    ensure_curve_merchant_exists()
-except Exception as e:
-    print(f"Error creating curve-merchant: {e}")
+# Comment out the auto-call for now to avoid module load issues
+# try:
+#     ensure_curve_merchant_exists()
+# except Exception as e:
+#     print(f"Error creating curve-merchant: {e}")
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -461,41 +1110,43 @@ def get_merchant_wallet(request, merchant_name):
     merchant_wallet = MerchantWallet.objects(merchant_name=merchant_name).first()
     if not merchant_wallet:
         return Response({'error': 'Merchant wallet not found.'}, status=404)
-    return Response({'merchant_wallet': {
-        'merchant_name': merchant_wallet.merchant_name,
-        'public_key': merchant_wallet.public_key,
-        'balance': merchant_wallet.balance,
-        'network': merchant_wallet.network
-    }})
+    
+    # Return the first wallet (ARC wallet) for backward compatibility
+    if merchant_wallet.wallets:
+        wallet = merchant_wallet.wallets[0]
+        return Response({'merchant_wallet': {
+            'merchant_name': merchant_wallet.merchant_name,
+            'public_key': wallet.public_key,
+            'balance': wallet.balance,
+            'network': wallet.network,
+            'symbol': wallet.symbol
+        }})
+    else:
+        return Response({'error': 'No wallets found for this merchant.'}, status=404)
 
-@api_view(["POST"])
-@authentication_classes([SimpleTokenAuthentication])
-@permission_classes([IsMongoAuthenticated])
-def place_order(request):
-    user = request.user
-    order_type = request.data.get("type")
-    symbol = request.data.get("symbol")
-    price = float(request.data.get("price", 0))
-    amount = float(request.data.get("amount", 0))
-    if order_type not in ["buy", "sell"] or symbol not in SYMBOLS or price <= 0 or amount <= 0:
-        return Response({"error": "Invalid order data."}, status=400)
-    order = Order(user=user, type=order_type, symbol=symbol, price=price, amount=amount)
-    order.save()
-    return Response({"message": "Order placed.", "order_id": str(order.id)})
+
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def get_order_book(request):
     symbol = request.query_params.get("symbol", "ARC")
-    orders = Order.objects(symbol=symbol, status="open").order_by("-timestamp")
+    pair_name = f"{symbol}USDT"
+    
+    # Get trading pair
+    trading_pair = TradingPair.objects(pair=pair_name).first()
+    if not trading_pair:
+        return Response({"orders": []})
+    
+    orders = Order.objects(pair=trading_pair, status="pending").order_by("-created_at")
     order_list = [
         {
             "id": str(o.id),
-            "type": o.type,
-            "symbol": o.symbol,
+            "type": o.order_type,
+            "side": o.side,
+            "symbol": symbol,
             "price": o.price,
-            "amount": o.amount,
-            "timestamp": o.timestamp,
+            "quantity": o.quantity,
+            "timestamp": o.created_at,
         }
         for o in orders
     ]
