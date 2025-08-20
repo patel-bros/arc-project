@@ -17,61 +17,86 @@ const Dashboard = () => {
         const token = localStorage.getItem('token')
         const headers = token ? { Authorization: `Bearer ${token}` } : {}
 
+        console.log('Dashboard: Starting data fetch...')
+        console.log('Dashboard: Token present:', !!token)
+
         // Initialize system if needed
         try {
           await axios.post(`${API_BASE}/initialize/`)
+          console.log('Dashboard: System initialized')
         } catch (initError) {
-          console.log('System might already be initialized:', initError.message)
+          console.log('Dashboard: System might already be initialized:', initError.message)
         }
 
         // Fetch portfolio data
         if (token) {
-          const portfolioResponse = await axios.get(`${API_BASE}/portfolio/`, { headers })
-          const portfolio = portfolioResponse.data.portfolio
+          console.log('Dashboard: Fetching portfolio data...')
+          try {
+            const portfolioResponse = await axios.get(`${API_BASE}/portfolio/`, { headers })
+            console.log('Dashboard: Portfolio response:', portfolioResponse.data)
+            const portfolio = portfolioResponse.data.portfolio
 
-          // Calculate portfolio metrics
-          const wallets = portfolio.wallets || []
-          const totalValue = portfolio.total_value_usd || 0
-          
-          // Find top gainer and loser
-          let topGainer = { symbol: 'N/A', change: 0 }
-          let topLoser = { symbol: 'N/A', change: 0 }
-          
-          wallets.forEach(wallet => {
-            // Mock day change calculation (in real app, you'd track this)
-            const dayChange = (Math.random() - 0.5) * 10 // Random change between -5% and +5%
-            if (dayChange > topGainer.change) {
-              topGainer = { symbol: wallet.symbol, change: dayChange }
+            // Calculate portfolio metrics
+            const wallets = portfolio.wallets || []
+            const totalValue = portfolio.total_value_usd || 0
+            
+            // Find top gainer and loser
+            let topGainer = { symbol: 'N/A', change: 0 }
+            let topLoser = { symbol: 'N/A', change: 0 }
+            
+            wallets.forEach(wallet => {
+              // Mock day change calculation (in real app, you'd track this)
+              const dayChange = (Math.random() - 0.5) * 10 // Random change between -5% and +5%
+              if (dayChange > topGainer.change) {
+                topGainer = { symbol: wallet.symbol, change: dayChange }
+              }
+              if (dayChange < topLoser.change) {
+                topLoser = { symbol: wallet.symbol, change: dayChange }
+              }
+            })
+
+            setPortfolioData({
+              totalValue: totalValue,
+              dayChange: totalValue * 0.05, // Mock 5% daily change
+              dayChangePercent: 5.0,
+              topGainer,
+              topLoser
+            })
+
+            // Fetch transaction history for recent activity
+            console.log('Dashboard: Fetching transactions...')
+            try {
+              const transactionsResponse = await axios.get(`${API_BASE}/transactions/`, { headers })
+              console.log('Dashboard: Transactions response:', transactionsResponse.data)
+              const transactions = transactionsResponse.data.transactions || []
+              
+              const formattedActivity = transactions.slice(0, 5).map(tx => ({
+                type: getActivityType(tx.transaction_type, tx.amount),
+                symbol: tx.crypto_symbol,
+                amount: Math.abs(tx.amount),
+                price: 0, // Would need current price lookup
+                value: 0, // Would calculate from amount * price
+                timestamp: formatTimestamp(tx.created_at),
+                status: tx.status === 'confirmed' ? 'completed' : tx.status
+              }))
+
+              setRecentActivity(formattedActivity)
+            } catch (txError) {
+              console.error('Dashboard: Error fetching transactions:', txError)
+              setRecentActivity([])
             }
-            if (dayChange < topLoser.change) {
-              topLoser = { symbol: wallet.symbol, change: dayChange }
+          } catch (portfolioError) {
+            console.error('Dashboard: Error fetching portfolio:', portfolioError)
+            if (portfolioError.response?.status === 401) {
+              // Token might be invalid, redirect to login
+              localStorage.removeItem('token')
+              window.location.href = '/login'
+              return
             }
-          })
-
-          setPortfolioData({
-            totalValue: totalValue,
-            dayChange: totalValue * 0.05, // Mock 5% daily change
-            dayChangePercent: 5.0,
-            topGainer,
-            topLoser
-          })
-
-          // Fetch transaction history for recent activity
-          const transactionsResponse = await axios.get(`${API_BASE}/transactions/`, { headers })
-          const transactions = transactionsResponse.data.transactions || []
-          
-          const formattedActivity = transactions.slice(0, 5).map(tx => ({
-            type: getActivityType(tx.transaction_type, tx.amount),
-            symbol: tx.crypto_symbol,
-            amount: Math.abs(tx.amount),
-            price: 0, // Would need current price lookup
-            value: 0, // Would calculate from amount * price
-            timestamp: formatTimestamp(tx.created_at),
-            status: tx.status === 'confirmed' ? 'completed' : tx.status
-          }))
-
-          setRecentActivity(formattedActivity)
+            throw portfolioError
+          }
         } else {
+          console.log('Dashboard: No token found, using default values')
           // Default values for non-authenticated users
           setPortfolioData({
             totalValue: 0,
@@ -83,24 +108,34 @@ const Dashboard = () => {
         }
 
         // Fetch market data
-        const marketResponse = await axios.get(`${API_BASE}/market-data/`)
-        const marketPairs = marketResponse.data.market_data || []
-        
-        const formattedMarketData = marketPairs.map(pair => ({
-          symbol: pair.base_symbol,
-          name: getCryptoName(pair.base_symbol),
-          price: pair.current_price,
-          change: pair.price_change_24h,
-          volume: formatVolume(pair.volume_24h),
-          marketCap: calculateMarketCap(pair.base_symbol, pair.current_price)
-        }))
+        console.log('Dashboard: Fetching market data...')
+        try {
+          const marketResponse = await axios.get(`${API_BASE}/market-data/`)
+          console.log('Dashboard: Market data response:', marketResponse.data)
+          const marketPairs = marketResponse.data.market_data || []
+          
+          const formattedMarketData = marketPairs.map(pair => ({
+            symbol: pair.base_symbol,
+            name: getCryptoName(pair.base_symbol),
+            price: pair.current_price,
+            change: pair.price_change_24h,
+            volume: formatVolume(pair.volume_24h),
+            marketCap: calculateMarketCap(pair.base_symbol, pair.current_price)
+          }))
 
-        setMarketData(formattedMarketData)
+          setMarketData(formattedMarketData)
+          console.log('Dashboard: Market data set successfully')
+        } catch (marketError) {
+          console.error('Dashboard: Error fetching market data:', marketError)
+          setMarketData([])
+        }
+        
         setLoading(false)
+        console.log('Dashboard: Data fetch completed')
 
       } catch (err) {
-        console.error('Error fetching dashboard data:', err)
-        setError('Failed to load dashboard data')
+        console.error('Dashboard: Error fetching dashboard data:', err)
+        setError(`Failed to load dashboard data: ${err.message}`)
         setLoading(false)
       }
     }
@@ -117,6 +152,7 @@ const Dashboard = () => {
 
   const fetchMarketData = async () => {
     try {
+      console.log('Dashboard: Updating market data...')
       const response = await axios.get(`${API_BASE}/market-data/`)
       const marketPairs = response.data.market_data || []
       
@@ -130,8 +166,9 @@ const Dashboard = () => {
       }))
 
       setMarketData(formattedMarketData)
+      console.log('Dashboard: Market data updated successfully')
     } catch (err) {
-      console.error('Error updating market data:', err)
+      console.error('Dashboard: Error updating market data:', err)
     }
   }
 
