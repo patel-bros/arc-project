@@ -59,7 +59,11 @@ const Trading = () => {
         {/* Trading Pairs */}
         <div className="col-span-3 bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-4">
           <h3 className="text-white font-semibold mb-4 flex items-center">
-            <span className="text-2xl mr-2">📈</span>
+            <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center mr-3">
+              <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+            </div>
             Markets
           </h3>
           <div className="space-y-2">
@@ -107,8 +111,12 @@ const Trading = () => {
           {/* Placeholder for TradingView Chart */}
           <div className="h-96 bg-gradient-to-br from-purple-900/20 to-blue-900/20 rounded-xl flex items-center justify-center border border-purple-500/10">
             <div className="text-center">
-              <div className="text-6xl mb-4">📊</div>
-              <p className="text-gray-400">TradingView Chart Integration</p>
+              <div className="w-16 h-16 mx-auto mb-4 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                <svg className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+              <p className="text-gray-400 font-medium">TradingView Chart Integration</p>
               <p className="text-gray-500 text-sm mt-2">Real-time price chart for {selectedPair}</p>
             </div>
           </div>
@@ -119,7 +127,11 @@ const Trading = () => {
           {/* Order Book */}
           <div className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-4">
             <h3 className="text-white font-semibold mb-4 flex items-center">
-              <span className="text-2xl mr-2">📋</span>
+              <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center mr-3">
+                <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 8h6m-6 4h6" />
+                </svg>
+              </div>
               Order Book
             </h3>
             
@@ -187,7 +199,11 @@ const Trading = () => {
             {/* Buy Panel */}
             <div className="space-y-4">
               <h3 className="text-green-400 font-semibold text-lg flex items-center">
-                <span className="text-2xl mr-2">📈</span>
+                <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center mr-3">
+                  <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
+                  </svg>
+                </div>
                 Buy {selectedPair.replace('USDT', '')}
               </h3>
               
@@ -260,7 +276,11 @@ const Trading = () => {
             {/* Sell Panel */}
             <div className="space-y-4">
               <h3 className="text-red-400 font-semibold text-lg flex items-center">
-                <span className="text-2xl mr-2">📉</span>
+                <div className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center mr-3">
+                  <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 13l-5 5m0 0l-5-5m5 5V6" />
+                  </svg>
+                </div>
                 Sell {selectedPair.replace('USDT', '')}
               </h3>
               

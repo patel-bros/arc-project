@@ -9,7 +9,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const API_BASE = 'http://localhost:8000/api'
+  const API_BASE = 'http://127.0.0.1:8000/api'
 
   useEffect(() => {
     const fetchData = async () => {
@@ -274,82 +274,111 @@ const Dashboard = () => {
     <Layout>
       <div className="space-y-6">
         {/* Welcome Section */}
-        <div className="bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded-2xl p-6 border border-purple-500/20">
-          <h1 className="text-3xl font-bold text-white mb-2">Welcome to Arc Exchange</h1>
-          <p className="text-gray-300">Your comprehensive crypto trading and portfolio management platform</p>
+        <div className="bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-purple-500/10 rounded-2xl p-8 border border-purple-500/20 backdrop-blur-xl">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-4xl font-bold text-white mb-2 bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+                Arc Exchange
+              </h1>
+              <p className="text-gray-300 text-lg">Your comprehensive crypto trading and portfolio management platform</p>
+            </div>
+            <div className="hidden md:flex items-center space-x-4">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Portfolio Overview */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6">
+          <div className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6 hover:border-purple-400/40 transition-all duration-300">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-gray-300 text-sm">Total Portfolio Value</h3>
-              <span className="text-2xl">💰</span>
+              <h3 className="text-gray-300 text-sm font-medium">Total Portfolio Value</h3>
+              <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                </svg>
+              </div>
             </div>
-            <p className="text-3xl font-bold text-white">{formatCurrency(portfolioData.totalValue)}</p>
-            <p className={`text-sm ${portfolioData.dayChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+            <p className="text-3xl font-bold text-white mb-1">{formatCurrency(portfolioData.totalValue)}</p>
+            <p className={`text-sm font-medium ${portfolioData.dayChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
               {portfolioData.dayChange >= 0 ? '+' : ''}{formatCurrency(portfolioData.dayChange)} ({formatPercentage(portfolioData.dayChangePercent)})
             </p>
           </div>
 
-          <div className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6">
+          <div className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6 hover:border-green-400/40 transition-all duration-300">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-gray-300 text-sm">Top Gainer</h3>
-              <span className="text-2xl">🚀</span>
+              <h3 className="text-gray-300 text-sm font-medium">Top Gainer</h3>
+              <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+              </div>
             </div>
-            <p className="text-2xl font-bold text-white">{portfolioData.topGainer.symbol}</p>
-            <p className="text-green-400 text-sm">{formatPercentage(portfolioData.topGainer.change)}</p>
+            <p className="text-2xl font-bold text-white mb-1">{portfolioData.topGainer.symbol}</p>
+            <p className="text-green-400 text-sm font-medium">+{formatPercentage(Math.abs(portfolioData.topGainer.change))}</p>
           </div>
 
-          <div className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6">
+          <div className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6 hover:border-red-400/40 transition-all duration-300">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-gray-300 text-sm">Top Loser</h3>
-              <span className="text-2xl">📉</span>
+              <h3 className="text-gray-300 text-sm font-medium">Top Loser</h3>
+              <div className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                </svg>
+              </div>
             </div>
-            <p className="text-2xl font-bold text-white">{portfolioData.topLoser.symbol}</p>
-            <p className="text-red-400 text-sm">{formatPercentage(portfolioData.topLoser.change)}</p>
+            <p className="text-2xl font-bold text-white mb-1">{portfolioData.topLoser.symbol}</p>
+            <p className="text-red-400 text-sm font-medium">{formatPercentage(portfolioData.topLoser.change)}</p>
           </div>
 
-          <div className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6">
+          <div className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6 hover:border-blue-400/40 transition-all duration-300">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-gray-300 text-sm">Live Market Data</h3>
-              <span className="text-2xl">📊</span>
+              <h3 className="text-gray-300 text-sm font-medium">Live Market Data</h3>
+              <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
             </div>
-            <p className="text-3xl font-bold text-white">{marketData.length}</p>
-            <p className="text-gray-400 text-sm">Trading pairs active</p>
+            <p className="text-3xl font-bold text-white mb-1">{marketData.length}</p>
+            <p className="text-gray-400 text-sm font-medium">Trading pairs active</p>
           </div>
         </div>
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Market Overview */}
-          <div className="lg:col-span-2 bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6">
+          <div className="lg:col-span-2 bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6 hover:border-purple-400/30 transition-all duration-300">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-white font-semibold text-xl">Live Market Data</h3>
               <div className="flex items-center space-x-2">
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                <span className="text-green-400 text-sm">Live</span>
+                <span className="text-green-400 text-sm font-medium">Live</span>
               </div>
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-purple-500/20">
-                    <th className="text-left text-gray-400 text-sm font-medium pb-3">Asset</th>
-                    <th className="text-right text-gray-400 text-sm font-medium pb-3">Price</th>
-                    <th className="text-right text-gray-400 text-sm font-medium pb-3">24h Change</th>
-                    <th className="text-right text-gray-400 text-sm font-medium pb-3">Volume</th>
-                    <th className="text-right text-gray-400 text-sm font-medium pb-3">Market Cap</th>
+                  <tr className="border-b border-purple-500/30">
+                    <th className="text-left text-gray-300 text-sm font-semibold pb-4">Asset</th>
+                    <th className="text-right text-gray-300 text-sm font-semibold pb-4">Price</th>
+                    <th className="text-right text-gray-300 text-sm font-semibold pb-4">24h Change</th>
+                    <th className="text-right text-gray-300 text-sm font-semibold pb-4">Volume</th>
+                    <th className="text-right text-gray-300 text-sm font-semibold pb-4">Market Cap</th>
                   </tr>
                 </thead>
                 <tbody>
                   {marketData.map((asset) => (
-                    <tr key={asset.symbol} className="border-b border-purple-500/10 hover:bg-purple-500/5 transition-colors">
+                    <tr key={asset.symbol} className="border-b border-purple-500/10 hover:bg-purple-500/5 transition-all duration-200 group">
                       <td className="py-4">
                         <div className="flex items-center space-x-3">
                           <div 
-                            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold"
+                            className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-bold border border-white/10 group-hover:border-white/20 transition-colors"
                             style={{
                               backgroundColor: asset.symbol === 'BTC' ? '#f7931a' :
                                               asset.symbol === 'ETH' ? '#627eea' :
@@ -380,19 +409,36 @@ const Dashboard = () => {
           </div>
 
           {/* Recent Activity */}
-          <div className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6">
-            <h3 className="text-white font-semibold text-xl mb-6">Recent Activity</h3>
+          <div className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6 hover:border-purple-400/30 transition-all duration-300">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-white font-semibold text-xl">Recent Activity</h3>
+              <div className="text-xs text-gray-400 bg-purple-500/10 px-2 py-1 rounded-lg">
+                Last 24h
+              </div>
+            </div>
             
-            <div className="space-y-4">
+            <div className="space-y-3">
               {recentActivity.length > 0 ? recentActivity.map((activity, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-black/30 rounded-xl">
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${
-                      activity.type === 'buy' ? 'bg-green-500/20 text-green-400' :
-                      activity.type === 'sell' ? 'bg-red-500/20 text-red-400' :
-                      'bg-blue-500/20 text-blue-400'
+                <div key={index} className="flex items-center justify-between p-4 bg-black/30 rounded-xl border border-purple-500/10 hover:border-purple-500/20 transition-all duration-200 group">
+                  <div className="flex items-center space-x-4">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      activity.type === 'buy' ? 'bg-green-500/20 border border-green-500/30' :
+                      activity.type === 'sell' ? 'bg-red-500/20 border border-red-500/30' :
+                      'bg-blue-500/20 border border-blue-500/30'
                     }`}>
-                      {activity.type === 'buy' ? '📈' : activity.type === 'sell' ? '📉' : '📥'}
+                      {activity.type === 'buy' ? (
+                        <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
+                        </svg>
+                      ) : activity.type === 'sell' ? (
+                        <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 13l-5 5m0 0l-5-5m5 5V6" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h18" />
+                        </svg>
+                      )}
                     </div>
                     <div>
                       <p className="text-white text-sm font-medium">
@@ -407,8 +453,13 @@ const Dashboard = () => {
                   </div>
                 </div>
               )) : (
-                <div className="text-center py-8 text-gray-400">
-                  <p>No recent activity</p>
+                <div className="text-center py-12 text-gray-400">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-purple-500/10 flex items-center justify-center">
+                    <svg className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                  <p className="font-medium mb-1">No recent activity</p>
                   <p className="text-sm">Start trading to see your transactions here</p>
                 </div>
               )}
@@ -424,37 +475,53 @@ const Dashboard = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <button 
             onClick={() => window.location.href = '/trading'}
-            className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6 hover:bg-purple-500/10 transition-colors group"
+            className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6 hover:bg-purple-500/10 hover:border-purple-400/40 transition-all duration-300 group"
           >
-            <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">💸</div>
-            <h4 className="text-white font-medium">Quick Trade</h4>
+            <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-green-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+              </svg>
+            </div>
+            <h4 className="text-white font-medium mb-1">Quick Trade</h4>
             <p className="text-gray-400 text-sm">Buy/sell crypto instantly</p>
           </button>
 
           <button 
             onClick={() => window.location.href = '/portfolio'}
-            className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6 hover:bg-purple-500/10 transition-colors group"
+            className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6 hover:bg-purple-500/10 hover:border-purple-400/40 transition-all duration-300 group"
           >
-            <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">💼</div>
-            <h4 className="text-white font-medium">Portfolio</h4>
+            <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-purple-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+            </div>
+            <h4 className="text-white font-medium mb-1">Portfolio</h4>
             <p className="text-gray-400 text-sm">Manage your assets</p>
           </button>
 
           <button 
             onClick={() => window.location.href = '/wallet'}
-            className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6 hover:bg-purple-500/10 transition-colors group"
+            className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6 hover:bg-purple-500/10 hover:border-purple-400/40 transition-all duration-300 group"
           >
-            <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">🔐</div>
-            <h4 className="text-white font-medium">Wallet</h4>
+            <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-blue-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <h4 className="text-white font-medium mb-1">Wallet</h4>
             <p className="text-gray-400 text-sm">Multi-crypto storage</p>
           </button>
 
           <button 
             onClick={() => window.location.href = '/orders'}
-            className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6 hover:bg-purple-500/10 transition-colors group"
+            className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6 hover:bg-purple-500/10 hover:border-purple-400/40 transition-all duration-300 group"
           >
-            <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">📋</div>
-            <h4 className="text-white font-medium">Orders</h4>
+            <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-orange-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <svg className="w-6 h-6 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+              </svg>
+            </div>
+            <h4 className="text-white font-medium mb-1">Orders</h4>
             <p className="text-gray-400 text-sm">Track your trades</p>
           </button>
         </div>

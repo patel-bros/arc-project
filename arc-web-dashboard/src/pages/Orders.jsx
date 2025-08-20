@@ -162,8 +162,12 @@ const Orders = () => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-white flex items-center">
-            <span className="text-4xl mr-3">📋</span>
-            Orders
+            <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center mr-4 border border-purple-500/30">
+              <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 8h6m-6 4h6" />
+              </svg>
+            </div>
+            Orders Management
           </h1>
           
           <div className="flex items-center space-x-4">
@@ -183,38 +187,54 @@ const Orders = () => {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6">
+          <div className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6 hover:border-purple-400/40 transition-all duration-300">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-gray-300 text-sm">Open Orders</h3>
-              <span className="text-2xl">📊</span>
+              <h3 className="text-gray-300 text-sm font-medium">Open Orders</h3>
+              <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
             </div>
             <p className="text-3xl font-bold text-white">{orders.length}</p>
           </div>
 
-          <div className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6">
+          <div className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6 hover:border-yellow-400/40 transition-all duration-300">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-gray-300 text-sm">Partially Filled</h3>
-              <span className="text-2xl">⏳</span>
+              <h3 className="text-gray-300 text-sm font-medium">Partially Filled</h3>
+              <div className="w-8 h-8 rounded-lg bg-yellow-500/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
             </div>
             <p className="text-3xl font-bold text-yellow-400">
               {orders.filter(o => o.status === 'partially_filled').length}
             </p>
           </div>
 
-          <div className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6">
+          <div className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6 hover:border-green-400/40 transition-all duration-300">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-gray-300 text-sm">Total Volume</h3>
-              <span className="text-2xl">💰</span>
+              <h3 className="text-gray-300 text-sm font-medium">Total Volume</h3>
+              <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                </svg>
+              </div>
             </div>
             <p className="text-3xl font-bold text-white">
               {formatCurrency(orders.reduce((sum, order) => sum + order.total, 0))}
             </p>
           </div>
 
-          <div className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6">
+          <div className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6 hover:border-purple-400/40 transition-all duration-300">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-gray-300 text-sm">Today's Orders</h3>
-              <span className="text-2xl">📈</span>
+              <h3 className="text-gray-300 text-sm font-medium">Today's Orders</h3>
+              <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+              </div>
             </div>
             <p className="text-3xl font-bold text-green-400">
               {orderHistory.filter(o => o.timestamp.includes('2024-01-15')).length}
@@ -254,8 +274,12 @@ const Orders = () => {
               
               {filteredOrders.length === 0 ? (
                 <div className="text-center py-12">
-                  <div className="text-6xl mb-4">📋</div>
-                  <p className="text-gray-400 text-lg">No open orders</p>
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                    <svg className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 8h6m-6 4h6" />
+                    </svg>
+                  </div>
+                  <p className="text-gray-400 text-lg font-medium">No open orders</p>
                   <p className="text-gray-500 text-sm mt-2">Your active orders will appear here</p>
                 </div>
               ) : (
