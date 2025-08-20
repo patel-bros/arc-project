@@ -78,7 +78,15 @@ def register(request):
         return Response({
             'message': 'Registration successful',
             'token': token_value,
-            'user': UserSerializer(user).data
+            'user': {
+                'id': str(user.id),
+                'username': user.username,
+                'email': user.email,
+                'is_merchant': user.is_merchant,
+                'merchant_name': user.merchant_name,
+                'kyc_verified': user.kyc_verified,
+                'created_at': user.created_at.isoformat() if user.created_at else None
+            }
         }, status=status.HTTP_201_CREATED)
         
     except Exception as e:
@@ -112,7 +120,15 @@ def login(request):
         return Response({
             'message': 'Login successful',
             'token': token.token,
-            'user': UserSerializer(user).data
+            'user': {
+                'id': str(user.id),
+                'username': user.username,
+                'email': user.email,
+                'is_merchant': user.is_merchant,
+                'merchant_name': user.merchant_name,
+                'kyc_verified': user.kyc_verified,
+                'created_at': user.created_at.isoformat() if user.created_at else None
+            }
         }, status=status.HTTP_200_OK)
         
     except Exception as e:

@@ -85,7 +85,14 @@ mongoengine.connect(
     db="arc_project_db",
     host="mongodb+srv://mhpatel2026:cK1qVytOLGSfMrTo@cluster0.esrxrmi.mongodb.net/arc_project_db?retryWrites=true&w=majority&appName=Cluster0",
     ssl=True,
-    alias='default'  # Explicitly set the default alias
+    alias='default',  # Explicitly set the default alias
+    connectTimeoutMS=30000,  # 30 seconds connection timeout
+    serverSelectionTimeoutMS=30000,  # 30 seconds server selection timeout
+    socketTimeoutMS=30000,  # 30 seconds socket timeout
+    maxPoolSize=50,  # Maximum number of connections in the pool
+    minPoolSize=10,  # Minimum number of connections in the pool
+    retryWrites=True,
+    retryReads=True
 )
 
 # Django still needs a default database for built-in apps
@@ -101,7 +108,9 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:5173",
+    "http://localhost:5174",
     "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True  # For development only
