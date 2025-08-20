@@ -1,4 +1,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
+  // Clear payment badge when popup opens
+  chrome.runtime.sendMessage({ type: 'CLEAR_PAYMENT_BADGE' });
+  
   // Elements
   const addressEl = document.getElementById('address');
   const balanceEl = document.getElementById('balance');
@@ -62,41 +65,90 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // API helpers
   async function fetchWallet(token) {
-    const res = await fetch('http://localhost:8000/api/wallet/', {
-      headers: { 'Authorization': `Token ${token}` }
-    });
-    return await res.json();
+    try {
+      console.log('Fetching wallet with token:', token); // Debug log
+      const res = await fetch('http://localhost:8000/api/wallet/', {
+        method: 'GET',
+        headers: { 
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log('Wallet fetch response status:', res.status); // Debug log
+      
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+      
+      const data = await res.json();
+      console.log('Wallet API response:', data); // Debug log
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      
+      return data.wallet; // Return the wallet object from the response
+    } catch (error) {
+      console.error('fetchWallet error:', error);
+      return { 
+        public_key: 'Error: ' + error.message, 
+        balance: 'Error loading',
+        network: 'Error'
+      };
+    }
   }
   async function fetchCryptos() {
-    const res = await fetch('http://localhost:8000/api/cryptos/');
-    return (await res.json()).cryptos;
+    try {
+      const res = await fetch('http://localhost:8000/api/cryptos/');
+      const data = await res.json();
+      console.log('Cryptos API response:', data); // Debug log
+      return data.cryptos || [];
+    } catch (error) {
+      console.error('fetchCryptos error:', error);
+      return []; // Return empty array on error
+    }
   }
   async function login(username, password) {
-    const res = await fetch('http://localhost:8000/api/login/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
-    });
-    const data = await res.json();
-    if (data.token) {
-      await setToken(data.token);
-      return data.token;
-    } else {
-      throw new Error('Login failed');
+    try {
+      const res = await fetch('http://localhost:8000/api/login/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      console.log('Login response:', data); // Debug log
+      
+      if (data.token) {
+        await setToken(data.token);
+        return data.token;
+      } else {
+        throw new Error(data.error || 'Login failed');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
     }
   }
   async function register(username, email, password) {
-    const res = await fetch('http://localhost:8000/api/register/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, email, password })
-    });
-    const data = await res.json();
-    if (data.token) {
-      await setToken(data.token);
-      return data.token;
-    } else {
-      throw new Error('Register failed');
+    try {
+      const res = await fetch('http://localhost:8000/api/register/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, email, password })
+      });
+      const data = await res.json();
+      console.log('Register response:', data); // Debug log
+      
+      if (data.token) {
+        await setToken(data.token);
+        return data.token;
+      } else {
+        throw new Error(data.error || 'Registration failed');
+      }
+    } catch (error) {
+      console.error('Register error:', error);
+      throw error;
     }
   }
   async function logout(token) {
@@ -156,37 +208,128 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Payment trigger from Curve
   let curveAmount = null;
   chrome.storage.local.get('arc_order_amount', (data) => {
+    console.log('Storage data:', data); // Debug log
     if (data.arc_order_amount) {
-      curveAmount = data.arc_order_amount;
-      paymentAmountEl.innerText = 'Order Amount: ' + curveAmount + ' ARC';
+      curveAmount = parseFloat(data.arc_order_amount);
+      console.log('Curve amount:', curveAmount); // Debug log
+      
+      // Create payment amount display if it doesn't exist
+      let paymentAmountEl = document.getElementById('payment-amount');
+      if (!paymentAmountEl) {
+        paymentAmountEl = document.createElement('p');
+        paymentAmountEl.id = 'payment-amount';
+        const paymentSection = document.getElementById('payment-section');
+        if (paymentSection) {
+          paymentSection.insertBefore(paymentAmountEl, paymentSection.firstChild);
+        }
+      }
+      
+      if (paymentAmountEl) {
+        paymentAmountEl.innerText = `Order Amount: ${curveAmount} ARC`;
+        paymentAmountEl.style.fontSize = '18px';
+        paymentAmountEl.style.fontWeight = 'bold';
+        paymentAmountEl.style.color = '#fff';
+        paymentAmountEl.style.textAlign = 'center';
+        paymentAmountEl.style.marginBottom = '20px';
+      }
+      
       showSection('payment-section');
+      // Clear the storage after use
+      chrome.storage.local.remove('arc_order_amount');
+      
       // Start camera
       const video = document.getElementById('video');
-      navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
-        video.srcObject = stream;
-      });
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
+          video.srcObject = stream;
+        }).catch((err) => {
+          console.error('Camera access error:', err);
+          paymentStatus.innerText = 'Camera access denied. Please enable camera.';
+        });
+      }
+      
       faceAuthBtn.onclick = async () => {
         paymentStatus.innerText = 'Authenticating...';
+        
+        // Show current wallet info during face auth
+        const token = await getToken();
+        if (token) {
+          const wallet = await fetchWallet(token);
+          if (wallet) {
+            paymentStatus.innerText = `Wallet: ${wallet.public_key?.substring(0, 20)}...\nBalance: ${wallet.balance} ARC\nAuthenticating...`;
+          }
+        }
+        
         // Capture frame
         const canvas = document.createElement('canvas');
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         canvas.getContext('2d').drawImage(video, 0, 0);
         canvas.toBlob(async (blob) => {
-          const token = await getToken();
-          const faceOk = await faceAuth(token, blob);
-          if (!faceOk) {
-            paymentStatus.innerText = 'Face authentication failed.';
-            chrome.runtime.sendMessage({ type: 'ARC_PAYMENT_STATUS', payload: { status: 'failed' } });
+          if (!token) {
+            paymentStatus.innerText = 'Please login first.';
+            showSection('login-section');
             return;
           }
-          // For demo, use merchant_name = 'curve-merchant'
-          const result = await manualTransfer(token, 'curve-merchant', curveAmount);
-          if (result.message) {
-            paymentStatus.innerText = result.message;
-            chrome.runtime.sendMessage({ type: 'ARC_PAYMENT_STATUS', payload: { status: 'success' } });
-          } else {
-            paymentStatus.innerText = result.error || 'Payment failed.';
+          try {
+            const faceOk = await faceAuth(token, blob);
+            if (!faceOk) {
+              paymentStatus.innerText = 'Face authentication failed.';
+              chrome.runtime.sendMessage({ type: 'ARC_PAYMENT_STATUS', payload: { status: 'failed' } });
+              return;
+            }
+            
+            paymentStatus.innerText = 'Processing payment...';
+            
+            // For demo, use merchant_name = 'curve-merchant'
+            const result = await manualTransfer(token, 'curve-merchant', curveAmount);
+            if (result.message) {
+              // Show initial success message
+              paymentStatus.innerText = `✅ Payment Successful!\nAmount: ${curveAmount} ARC\nTo: Curve Merchant`;
+              
+              // Send success message to Curve
+              chrome.runtime.sendMessage({ 
+                type: 'ARC_PAYMENT_STATUS', 
+                payload: { 
+                  status: 'success',
+                  amount: curveAmount,
+                  transactionId: result.transaction_id || Date.now()
+                } 
+              });
+              
+              // Update wallet balance immediately
+              const updatedWallet = await fetchWallet(token);
+              if (updatedWallet) {
+                balanceEl.innerText = 'Balance: ' + updatedWallet.balance;
+              }
+              
+              // Countdown timer for auto-close
+              let countdown = 3;
+              const countdownInterval = setInterval(() => {
+                paymentStatus.innerText = `✅ Payment Successful!\nAmount: ${curveAmount} ARC\nTo: Curve Merchant\n\nClosing in ${countdown} seconds...`;
+                countdown--;
+                
+                if (countdown < 0) {
+                  clearInterval(countdownInterval);
+                  console.log('Sending CLOSE_EXTENSION_TAB message...');
+                  chrome.runtime.sendMessage({ type: 'CLOSE_EXTENSION_TAB' }, (response) => {
+                    console.log('Close response:', response);
+                    if (chrome.runtime.lastError) {
+                      console.error('Close error:', chrome.runtime.lastError);
+                      // Fallback: try to close window
+                      window.close();
+                    }
+                  });
+                }
+              }, 1000);
+              
+            } else {
+              paymentStatus.innerText = 'Payment failed: ' + (result.error || 'Unknown error');
+              chrome.runtime.sendMessage({ type: 'ARC_PAYMENT_STATUS', payload: { status: 'failed' } });
+            }
+          } catch (error) {
+            console.error('Payment error:', error);
+            paymentStatus.innerText = 'Payment failed: ' + error.message;
             chrome.runtime.sendMessage({ type: 'ARC_PAYMENT_STATUS', payload: { status: 'failed' } });
           }
         }, 'image/jpeg');
@@ -197,16 +340,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     initWalletFlow();
   });
 
+  // Read query params for direct payment open
+  const params = new URLSearchParams(location.search);
+  const qpAmount = params.get('amount');
+  if (qpAmount && paymentAmountEl) {
+    paymentAmountEl.innerText = qpAmount;
+    paymentSection?.classList.remove('hidden');
+  }
+
   async function initWalletFlow() {
     let token = await getToken();
     if (token) {
-      showSection('wallet-section');
-      const wallet = await fetchWallet(token);
-      addressEl.innerText = 'Wallet: ' + wallet.public_key;
-      balanceEl.innerText = 'Balance: ' + wallet.balance;
-      const cryptos = await fetchCryptos();
-      document.getElementById('crypto-list').innerHTML = cryptos.map(c => `<div>${c.symbol}: ${c.name}</div>`).join('');
-      manualReceiveAddress.innerText = wallet.public_key;
+      try {
+        showSection('wallet-section');
+        console.log('Token found:', token); // Debug log
+        const wallet = await fetchWallet(token);
+        console.log('Wallet data:', wallet); // Debug log
+        
+        if (wallet) {
+          addressEl.innerText = 'Wallet: ' + (wallet.public_key || 'Not available');
+          balanceEl.innerText = 'Balance: ' + (wallet.balance !== undefined ? wallet.balance : 'Not available');
+        } else {
+          addressEl.innerText = 'Wallet: Error loading';
+          balanceEl.innerText = 'Balance: Error loading';
+        }
+        
+        const cryptos = await fetchCryptos();
+        document.getElementById('crypto-list').innerHTML = cryptos.map(c => `<div>${c.symbol}: ${c.name}</div>`).join('');
+        
+        if (manualReceiveAddress) {
+          manualReceiveAddress.innerText = wallet.public_key || 'Not available';
+        }
+      } catch (error) {
+        console.error('initWalletFlow error:', error);
+        addressEl.innerText = 'Wallet: Error - ' + error.message;
+        balanceEl.innerText = 'Balance: Error loading';
+      }
     } else {
       showSection('login-section');
     }

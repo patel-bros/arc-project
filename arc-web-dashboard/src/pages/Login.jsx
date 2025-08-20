@@ -28,6 +28,7 @@ const Login = () => {
         <input className="w-full p-2 mb-2 border" name="username" placeholder="Username" onChange={handleChange} required />
         <input className="w-full p-2 mb-4 border" name="password" placeholder="Password" type="password" onChange={handleChange} required />
         <button className="w-full bg-blue-600 text-white p-2 rounded">Login</button>
+        <a href="/register" className="block text-center mt-4 text-blue-600 hover:underline">Don't have an account? Register</a>
       </form>
     </div>
   )

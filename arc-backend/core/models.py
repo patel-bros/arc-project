@@ -8,6 +8,11 @@ class User(Document):
     password = StringField(max_length=255, required=True)
     created_at = DateTimeField(default=datetime.utcnow)
 
+class Token(Document):
+    user = ReferenceField(User, reverse_delete_rule=CASCADE)
+    token = StringField(max_length=255, unique=True, required=True)
+    created_at = DateTimeField(default=datetime.utcnow)
+
 class Wallet(Document):
     user = ReferenceField(User, reverse_delete_rule=CASCADE, unique=True)
     public_key = StringField(max_length=200, required=True)

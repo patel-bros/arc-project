@@ -17,11 +17,22 @@ const Cart = () => {
     function handleMessage(event) {
       if (event.data && event.data.type === 'ARC_PAYMENT_STATUS') {
         setIsPaying(false)
-        setPaymentStatus(event.data.payload.status)
-        if (event.data.payload.status === 'success') {
+        const status = event.data.payload.status
+        const amount = event.data.payload.amount
+        const transactionId = event.data.payload.transactionId
+        
+        setPaymentStatus(status)
+        
+        if (status === 'success') {
+          console.log(`Payment successful! Amount: ${amount} ARC, Transaction: ${transactionId}`)
           localStorage.removeItem('curve_cart')
           setCartItems([])
           setTotal(0)
+          
+          // Show success message with transaction details
+          setTimeout(() => {
+            setPaymentStatus(`Payment of ${amount} ARC completed successfully! 🎉`)
+          }, 500)
         }
       }
     }
@@ -32,29 +43,30 @@ const Cart = () => {
   const handlePayWithArc = () => {
     setIsPaying(true)
     setPaymentStatus('')
-    // Send message to extension to trigger payment popup
-    if (window.chrome && window.chrome.runtime && window.chrome.runtime.sendMessage) {
-      window.chrome.runtime.sendMessage(
-        {
-          type: 'ARC_PAYMENT_TRIGGER',
-          payload: {
-            amount: total,
-            merchant_id: 'curve-merchant',
-            items: cartItems
-          }
-        }
-      )
-    } else {
-      // Fallback for dev: postMessage for local testing
-      window.postMessage({
-        type: 'ARC_PAYMENT_REQUEST',
-        payload: {
-          amount: total,
-          merchant_id: 'curve-merchant',
-          items: cartItems
-        }
-      }, '*')
+    
+    console.log('=== PAY WITH ARC CLICKED ===');
+    console.log('Total amount:', total);
+    console.log('Current URL:', window.location.href);
+    
+    // Send message to trigger Arc extension payment via content script
+    const paymentMessage = {
+      type: 'ARC_PAYMENT_REQUEST',
+      payload: {
+        amount: total,
+        merchant_id: 'curve-merchant',
+        items: cartItems
+      }
     }
+    
+    console.log('Sending payment message:', paymentMessage);
+    window.postMessage(paymentMessage, '*')
+    
+    // Add a timeout to check if extension responds
+    setTimeout(() => {
+      if (isPaying) {
+        console.log('No response from extension after 3 seconds');
+      }
+    }, 3000);
   }
 
   return (
@@ -81,8 +93,10 @@ const Cart = () => {
         {isPaying ? 'Processing...' : 'Pay with Arc'}
       </button>
       {paymentStatus && (
-        <div className={`mt-6 p-4 rounded-lg text-center font-semibold ${paymentStatus === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-          {paymentStatus === 'success' ? 'Payment Successful! 🎉' : 'Payment Failed. Please try again.'}
+        <div className={`mt-6 p-4 rounded-lg text-center font-semibold ${paymentStatus === 'success' || paymentStatus.includes('completed successfully') ? 'bg-green-100 text-green-700 border-2 border-green-300' : 'bg-red-100 text-red-700'}`}>
+          {paymentStatus === 'success' ? 'Payment Successful! 🎉' : 
+           paymentStatus.includes('completed successfully') ? paymentStatus :
+           paymentStatus === 'failed' ? 'Payment Failed. Please try again.' : paymentStatus}
         </div>
       )}
     </div>

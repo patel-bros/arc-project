@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.response import Response
-from .models import User, Wallet, FaceData, Transaction, MerchantWallet, Order
+from .models import User, Wallet, FaceData, Transaction, MerchantWallet, Order, Token
 from .serializers import UserSerializer, WalletSerializer
 from .utils import generate_wallet
 import face_recognition
@@ -12,14 +12,28 @@ from datetime import datetime
 import json
 from rest_framework.decorators import authentication_classes
 from rest_framework.authentication import BaseAuthentication
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, BasePermission
 from rest_framework.permissions import AllowAny
 import random
 
 SYMBOLS = ["ARC", "BTC", "ETH"]
 
-# In-memory token store for demo (replace with JWT or persistent store in production)
-USER_TOKENS = {}
+# Custom permission class for MongoEngine User
+class IsMongoAuthenticated(BasePermission):
+    """
+    Custom permission class for MongoEngine User models
+    """
+    def has_permission(self, request, view):
+        # Check if user is authenticated and is not AnonymousUser
+        user = getattr(request, 'user', None)
+        if user is None:
+            return False
+        
+        # Check if it's a valid MongoDB user (has username attribute and is not AnonymousUser)
+        if hasattr(user, 'username') and user.username != 'AnonymousUser':
+            return True
+            
+        return False
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -51,14 +65,16 @@ def register(request):
         image = face_recognition.load_image_file(image_file)
         encodings = face_recognition.face_encodings(image)
         if not encodings:
+            print("No face found in image.")
             return Response({'error': 'No face found in image.'}, status=400)
         encoding_array = encodings[0]
         face_data = FaceData(user=user, encoding=encoding_array.tobytes())
         face_data.save()
 
-    # Generate a simple token (for demo)
+    # Generate a simple token and save to database
     token = secrets.token_hex(32)
-    USER_TOKENS[str(user.id)] = token
+    token_obj = Token(user=user, token=token)
+    token_obj.save()
 
     return Response({
         'user': {'id': str(user.id), 'username': username, 'email': email},
@@ -70,21 +86,44 @@ def register(request):
         'token': token
     })
 
-# Simple token authentication for demo
+# Simple token authentication using database
 class SimpleTokenAuthentication(BaseAuthentication):
     def authenticate(self, request):
-        token = request.headers.get('Authorization')
-        if token and token.startswith('Token '):
-            token = token[6:]
-            for user_id, user_token in USER_TOKENS.items():
-                if user_token == token:
-                    user = User.objects(id=user_id).first()
-                    if user:
-                        return (user, None)
+        auth_header = request.META.get('HTTP_AUTHORIZATION')
+        print(f"Auth header: {auth_header}")  # Debug
+        
+        if not auth_header:
+            return None
+            
+        try:
+            token_type, token = auth_header.split(' ', 1)
+            if token_type.lower() != 'token':
+                return None
+        except ValueError:
+            return None
+        
+        print(f"Looking for token: {token}")  # Debug
+        
+        # Look up token in database
+        try:
+            token_obj = Token.objects(token=token).first()
+            if token_obj and token_obj.user:
+                print(f"Found user: {token_obj.user.username}")  # Debug
+                return (token_obj.user, token)  # Return (user, auth) tuple
+            else:
+                print("Token not found in database")  # Debug
+        except Exception as e:
+            print(f"Error finding token: {e}")
+        
+        print("No matching token found")  # Debug
         return None
 
+    def authenticate_header(self, request):
+        return 'Token'
+
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@authentication_classes([SimpleTokenAuthentication])
+@permission_classes([IsMongoAuthenticated])
 def login(request):
     data = request.data.copy()
     username = data.get('username')
@@ -92,15 +131,20 @@ def login(request):
     user = User.objects(username=username, password=password).first()
     if not user:
         return Response({'error': 'Invalid credentials.'}, status=401)
-    token = USER_TOKENS.get(str(user.id))
-    if not token:
+    
+    # Check if token already exists for user
+    token_obj = Token.objects(user=user).first()
+    if not token_obj:
+        # Create new token if none exists
         token = secrets.token_hex(32)
-        USER_TOKENS[str(user.id)] = token
-    return Response({'token': token, 'user': {'id': str(user.id), 'username': user.username, 'email': user.email}})
+        token_obj = Token(user=user, token=token)
+        token_obj.save()
+    
+    return Response({'token': token_obj.token, 'user': {'id': str(user.id), 'username': user.username, 'email': user.email}})
 
 @api_view(['POST'])
 @authentication_classes([SimpleTokenAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsMongoAuthenticated])
 def create_wallet(request):
     user = request.user
     if Wallet.objects(user=user).first():
@@ -112,13 +156,29 @@ def create_wallet(request):
 
 @api_view(['GET'])
 @authentication_classes([SimpleTokenAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsMongoAuthenticated])
 def get_wallet(request):
-    user = request.user
-    wallet = Wallet.objects(user=user).first()
-    if not wallet:
-        return Response({'error': 'No wallet found.'}, status=404)
-    return Response({'wallet': {'public_key': wallet.public_key, 'balance': wallet.balance, 'network': wallet.network}})
+    try:
+        user = request.user
+        print(f"Get wallet for user: {user}, type: {type(user)}")  # Debug log
+        
+        if not user or not hasattr(user, 'username'):
+            return Response({'error': 'Invalid user authentication.'}, status=401)
+        
+        wallet = Wallet.objects(user=user).first()
+        if not wallet:
+            return Response({'error': 'No wallet found.'}, status=404)
+        
+        return Response({
+            'wallet': {
+                'public_key': wallet.public_key, 
+                'balance': wallet.balance, 
+                'network': wallet.network
+            }
+        })
+    except Exception as e:
+        print(f"Error in get_wallet: {e}")  # Debug log
+        return Response({'error': f'Database error: {str(e)}'}, status=500)
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -215,7 +275,7 @@ def crypto_list(request):
 
 @api_view(['POST'])
 @authentication_classes([SimpleTokenAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsMongoAuthenticated])
 def initiate_payment(request):
     user = request.user
     wallet = Wallet.objects(user=user).first()
@@ -251,7 +311,7 @@ def payment_status(request):
 
 @api_view(['GET'])
 @authentication_classes([SimpleTokenAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsMongoAuthenticated])
 def transaction_history(request):
     user = request.user
     wallet = Wallet.objects(user=user).first()
@@ -272,7 +332,7 @@ def transaction_history(request):
 
 @api_view(['POST'])
 @authentication_classes([SimpleTokenAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsMongoAuthenticated])
 def face_auth(request):
     user = request.user
     image_file = request.FILES.get('image')
@@ -292,7 +352,7 @@ def face_auth(request):
 
 @api_view(['POST'])
 @authentication_classes([SimpleTokenAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsMongoAuthenticated])
 def buy_crypto(request):
     user = request.user
     wallet = Wallet.objects(user=user).first()
@@ -307,7 +367,7 @@ def buy_crypto(request):
 
 @api_view(['POST'])
 @authentication_classes([SimpleTokenAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsMongoAuthenticated])
 def sell_crypto(request):
     user = request.user
     wallet = Wallet.objects(user=user).first()
@@ -324,7 +384,7 @@ def sell_crypto(request):
 
 @api_view(['POST'])
 @authentication_classes([SimpleTokenAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsMongoAuthenticated])
 def transfer_to_merchant(request):
     user = request.user
     wallet = Wallet.objects(user=user).first()
@@ -375,6 +435,26 @@ def create_merchant_wallet(request):
         'network': merchant_wallet.network
     }})
 
+# Auto-create curve-merchant wallet if it doesn't exist
+def ensure_curve_merchant_exists():
+    if not MerchantWallet.objects(merchant_name='curve-merchant').first():
+        public_key, private_key_list = generate_wallet()
+        merchant_wallet = MerchantWallet(
+            merchant_name='curve-merchant',
+            public_key=public_key,
+            private_key=json.dumps(private_key_list),
+            balance=0.0,
+            network='Solana Devnet'
+        )
+        merchant_wallet.save()
+        print("Created curve-merchant wallet")
+
+# Call this when the server starts
+try:
+    ensure_curve_merchant_exists()
+except Exception as e:
+    print(f"Error creating curve-merchant: {e}")
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def get_merchant_wallet(request, merchant_name):
@@ -390,7 +470,7 @@ def get_merchant_wallet(request, merchant_name):
 
 @api_view(["POST"])
 @authentication_classes([SimpleTokenAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsMongoAuthenticated])
 def place_order(request):
     user = request.user
     order_type = request.data.get("type")
@@ -427,4 +507,29 @@ def get_prices(request):
     # Simulate prices for each symbol
     prices = {s: round(random.uniform(10, 100), 2) for s in SYMBOLS}
     return Response({"prices": prices})
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def debug_auth(request):
+    """Debug endpoint to check authentication status"""
+    auth_header = request.META.get('HTTP_AUTHORIZATION', 'No auth header')
+    user = getattr(request, 'user', 'No user')
+    user_type = type(user).__name__
+    
+    # Check if token exists in database
+    token_exists = False
+    total_tokens = Token.objects.count()
+    
+    if auth_header.startswith('Token '):
+        token = auth_header[6:]
+        token_obj = Token.objects(token=token).first()
+        token_exists = token_obj is not None
+    
+    return Response({
+        'auth_header': auth_header,
+        'user': str(user),
+        'user_type': user_type,
+        'token_exists_in_db': token_exists,
+        'total_tokens_in_db': total_tokens
+    })
 

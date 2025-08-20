@@ -23,6 +23,7 @@ const Dashboard = () => {
       })
       setWallet(res.data.wallet)
     } catch (err) {
+      console.log("Error fetching wallet:", err)
       alert("Error fetching wallet")
     }
   }

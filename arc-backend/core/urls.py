@@ -23,4 +23,5 @@ urlpatterns = [
     path('trade/order/', views.place_order),
     path('trade/orderbook/', views.get_order_book),
     path('trade/prices/', views.get_prices),
+    path('debug-auth/', views.debug_auth),
 ]

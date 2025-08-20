@@ -39,10 +39,12 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework.authtoken',
+    'corsheaders',  # Add CORS headers
     'core',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',  # Add CORS middleware at the top
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -76,19 +78,46 @@ WSGI_APPLICATION = 'arc_backend.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 # MongoDB (MongoEngine) settings
-from mongoengine import connect
-connect(
-    db="arc_project_db",  # You can use any db name
-    host="mongodb+srv://mhpatel2026:cK1qVytOLGSfMrTo@cluster0.esrxrmi.mongodb.net/arc_project_db?retryWrites=true&w=majority&appName=Cluster0"
+import mongoengine
+
+# Connect to MongoDB
+mongoengine.connect(
+    db="arc_project_db",
+    host="mongodb+srv://mhpatel2026:cK1qVytOLGSfMrTo@cluster0.esrxrmi.mongodb.net/arc_project_db?retryWrites=true&w=majority&appName=Cluster0",
+    ssl=True,
+    alias='default'  # Explicitly set the default alias
 )
 
-# Remove or comment out the default DATABASES config
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
+# Django still needs a default database for built-in apps
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
+}
+
+# CORS Settings
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+CORS_ALLOW_ALL_ORIGINS = True  # For development only
+CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
 
 
 # Password validation
@@ -140,4 +169,18 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+    ],
 }
+
+# CSRF Settings for development
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+# Allow all hosts for development
+ALLOWED_HOSTS = ['*']

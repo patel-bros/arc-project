@@ -195,8 +195,14 @@ button:hover::before {
 
 #paymentStatus {
   text-align: center;
-  padding: 10px;
+  padding: 15px;
   border-radius: 10px;
   margin-top: 15px;
   font-weight: 500;
+  white-space: pre-line;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  line-height: 1.4;
+  font-size: 14px;
 }

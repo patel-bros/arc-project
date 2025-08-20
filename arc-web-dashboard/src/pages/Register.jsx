@@ -31,6 +31,7 @@ const Register = () => {
       localStorage.setItem("user", JSON.stringify(res.data.user))
       navigate("/dashboard")
     } catch (error) {
+      console.log("Registration error:", error)
       alert("Error: " + (error.response?.data?.error || "Try again"))
     }
   }
@@ -44,6 +45,7 @@ const Register = () => {
         <input className="w-full p-2 mb-2 border" name="password" placeholder="Password" type="password" onChange={handleChange} required />
         <input className="w-full p-2 mb-4 border" name="image" type="file" accept="image/*" onChange={handleImageChange} />
         <button className="w-full bg-blue-600 text-white p-2 rounded">Register</button>
+      <a href="/" className="block text-center mt-4 text-blue-600 hover:underline">Already have an account? Login</a>
       </form>
     </div>
   )
