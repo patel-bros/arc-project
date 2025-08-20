@@ -84,14 +84,16 @@ const Layout = ({ children }) => {
       <div className={`fixed inset-y-0 left-0 z-50 ${sidebarOpen ? 'w-64' : 'w-16'} transition-all duration-300 ease-in-out`}>
         <div className="flex h-full flex-col bg-black/20 backdrop-blur-xl border-r border-purple-500/20">
           {/* Logo */}
-          <div className="flex h-16 items-center justify-between px-4">
+          <div className="flex h-20 items-center justify-between px-4">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center border border-purple-400/30 bg-white/10 backdrop-blur-sm">
-                <img 
-                  src="/arc.png" 
-                  alt="ARC Logo" 
-                  className="w-8 h-8 object-contain"
-                />
+              <div className="w-16 h-16 rounded-full flex items-center justify-center border-2 border-purple-400/40 bg-white/15 backdrop-blur-sm shadow-lg hover:scale-105 transition-transform duration-200 p-1">
+                <div className="w-14 h-14 rounded-full overflow-hidden bg-white/10 flex items-center justify-center">
+                  <img 
+                    src="/arc.png" 
+                    alt="ARC Logo" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
               </div>
               {sidebarOpen && (
                 <span className="text-white font-bold text-xl bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
