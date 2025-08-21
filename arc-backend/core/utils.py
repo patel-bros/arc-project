@@ -385,3 +385,100 @@ def execute_market_order(user, pair, side, quantity):
         
     except Exception as e:
         return False, f"Order execution failed: {str(e)}"
+
+def process_crypto_transfer(from_user, to_user, crypto_symbol, amount, memo=""):
+    """Process crypto transfer between users"""
+    try:
+        # Get portfolios
+        from_portfolio = Portfolio.objects(user=from_user).first()
+        to_portfolio = Portfolio.objects(user=to_user).first()
+        
+        if not from_portfolio:
+            return False, "Sender portfolio not found"
+        if not to_portfolio:
+            return False, "Recipient portfolio not found"
+            
+        # Find sender's wallet
+        from_wallet = None
+        for wallet in from_portfolio.wallets:
+            if wallet.symbol == crypto_symbol:
+                from_wallet = wallet
+                break
+                
+        if not from_wallet:
+            return False, f"Sender does not have {crypto_symbol} wallet"
+            
+        if from_wallet.balance < amount:
+            return False, f"Insufficient {crypto_symbol} balance"
+            
+        # Find or create recipient's wallet
+        to_wallet = None
+        for wallet in to_portfolio.wallets:
+            if wallet.symbol == crypto_symbol:
+                to_wallet = wallet
+                break
+                
+        if not to_wallet:
+            # Create new wallet for recipient
+            from .models import CryptoWallet
+            public_key, private_key_list = generate_wallet()
+            to_wallet = CryptoWallet(
+                symbol=crypto_symbol,
+                name=get_crypto_name(crypto_symbol),
+                public_key=public_key,
+                private_key=json.dumps(private_key_list),
+                balance=0.0,
+                is_active=True
+            )
+            to_portfolio.wallets.append(to_wallet)
+            
+        # Process transfer
+        from_wallet.balance -= amount
+        to_wallet.balance += amount
+        
+        # Save portfolios
+        from_portfolio.save()
+        to_portfolio.save()
+        
+        # Create transaction records
+        tx_hash = generate_transaction_hash()
+        
+        # Determine transaction types based on context
+        # If it's a purchase (user paying merchant), use appropriate types
+        if "payment" in memo.lower() or "purchase" in memo.lower():
+            sender_type = "purchase"
+            recipient_type = "deposit"
+        else:
+            sender_type = "transfer"
+            recipient_type = "transfer"
+        
+        # Sender transaction
+        Transaction(
+            user=from_user,
+            transaction_type=sender_type,
+            crypto_symbol=crypto_symbol,
+            amount=-amount,
+            to_address=to_wallet.public_key,
+            from_address=from_wallet.public_key,
+            status="confirmed",
+            tx_hash=tx_hash,
+            memo=memo or f"Transfer to {to_user.username}"
+        ).save()
+        
+        # Recipient transaction
+        Transaction(
+            user=to_user,
+            transaction_type=recipient_type,
+            crypto_symbol=crypto_symbol,
+            amount=amount,
+            to_address=to_wallet.public_key,
+            from_address=from_wallet.public_key,
+            status="confirmed",
+            tx_hash=tx_hash,
+            memo=memo or f"Transfer from {from_user.username}"
+        ).save()
+        
+        return True, f"Transfer successful: {amount} {crypto_symbol}"
+        
+    except Exception as e:
+        return False, f"Transfer failed: {str(e)}"

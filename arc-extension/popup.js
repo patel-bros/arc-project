@@ -307,6 +307,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     return await res.json();
   }
+  
+  async function processMerchantPayment(token, merchantName, amount, cryptoSymbol = 'ARC') {
+    const res = await fetch('http://localhost:8000/api/merchant/payment/', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ 
+        merchant_name: merchantName, 
+        amount: amount,
+        crypto_symbol: cryptoSymbol,
+        memo: `Extension payment to ${merchantName}`
+      })
+    });
+    return await res.json();
+  }
+  
+  async function fetchMerchantInfo(merchantName) {
+    const res = await fetch(`http://localhost:8000/api/merchant/info/?merchant_name=${merchantName}`);
+    return await res.json();
+  }
+  
   async function fetchMerchantWallet(merchantName) {
     const res = await fetch(`http://localhost:8000/api/merchant/${merchantName}/`);
     return await res.json();
@@ -410,18 +433,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             window.paymentInProgress = true;
             window.currentTransactionHash = null;
             
-            // For demo, use merchant_name = 'curve-merchant'
-            const result = await createTransaction(token, 'curve-merchant', curveAmount, 'purchase');
-            if (result.transaction && result.transaction.tx_hash) {
+            // Process merchant payment
+            const result = await processMerchantPayment(token, 'curve-merchant-1', curveAmount, 'ARC');
+            if (result.transaction_hash) {
               // Store transaction hash for potential cancellation
-              window.currentTransactionHash = result.transaction.tx_hash;
+              window.currentTransactionHash = result.transaction_hash;
               
               // Payment completed successfully
               window.paymentInProgress = false;
               window.paymentInitiated = false; // Clear the initiated flag
               
               // Show initial success message
-              paymentStatus.innerText = `✅ Payment Successful!\nAmount: ${curveAmount} ARC\nTo: Curve Merchant\nTx: ${result.transaction.tx_hash.substring(0, 10)}...`;
+              paymentStatus.innerText = `✅ Payment Successful!\nAmount: ${curveAmount} ARC\nTo: Curve Merchant\nTx: ${result.transaction_hash.substring(0, 10)}...`;
               
               // Update wallet balance immediately
               const updatedWallet = await fetchWallet(token);
@@ -436,7 +459,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 payload: { 
                   status: 'success',
                   amount: curveAmount,
-                  transactionId: result.transaction.tx_hash,
+                  transactionId: result.transaction_hash,
                   currency: 'ARC'
                 } 
               }, (response) => {

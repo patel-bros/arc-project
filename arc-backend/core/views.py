@@ -676,10 +676,64 @@ def initialize_system(request):
         # Simulate initial prices
         simulate_all_prices()
         
+        # Initialize merchant wallets for all merchants
+        initialize_merchant_wallets()
+        
         return Response({'message': 'System initialized successfully'}, status=status.HTTP_200_OK)
         
     except Exception as e:
         return Response({'error': f'System initialization failed: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+def initialize_merchant_wallets():
+    """Initialize merchant wallets for all merchant users"""
+    try:
+        merchant_users = User.objects(is_merchant=True)
+        
+        for merchant_user in merchant_users:
+            # Check if merchant wallet already exists
+            existing_wallet = MerchantWallet.objects(user=merchant_user).first()
+            if existing_wallet:
+                continue
+                
+            # Create merchant wallet with crypto wallets
+            merchant_wallets = []
+            
+            # Create wallets for each supported crypto
+            supported_cryptos = [
+                ('ARC', 'Arc Token'),
+                ('BTC', 'Bitcoin'),
+                ('ETH', 'Ethereum'),
+                ('USDT', 'Tether'),
+                ('BNB', 'Binance Coin')
+            ]
+            
+            for symbol, name in supported_cryptos:
+                public_key, private_key_list = generate_wallet()
+                crypto_wallet = CryptoWallet(
+                    symbol=symbol,
+                    name=name,
+                    public_key=public_key,
+                    private_key=json.dumps(private_key_list),
+                    balance=1000.0 if symbol == 'ARC' else 0.0,  # Give merchants some initial ARC
+                    is_active=True
+                )
+                merchant_wallets.append(crypto_wallet)
+            
+            # Create merchant wallet document
+            merchant_wallet = MerchantWallet(
+                merchant_name=merchant_user.merchant_name or merchant_user.username,
+                user=merchant_user,
+                wallets=merchant_wallets,
+                business_name=merchant_user.merchant_name or f"{merchant_user.username} Business",
+                is_active=True
+            )
+            merchant_wallet.save()
+            
+            print(f"Created merchant wallet for {merchant_user.username}")
+            
+    except Exception as e:
+        print(f"Error initializing merchant wallets: {e}")
+        raise e
 
 # Legacy endpoints for backward compatibility
 @api_view(['GET'])
@@ -1335,4 +1389,123 @@ def debug_auth(request):
         'token_exists_in_db': token_exists,
         'total_tokens_in_db': total_tokens
     })
+
+# Merchant Payment Endpoints
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_merchant_info(request):
+    """Get merchant wallet info for payments"""
+    try:
+        merchant_name = request.GET.get('merchant_name', 'curve-merchant')
+        
+        # Find merchant by name or merchant_name field
+        merchant_wallet = MerchantWallet.objects(merchant_name=merchant_name).first()
+        if not merchant_wallet:
+            # Try to find by user.merchant_name for backwards compatibility
+            merchant_user = User.objects(merchant_name=merchant_name, is_merchant=True).first()
+            if merchant_user:
+                merchant_wallet = MerchantWallet.objects(user=merchant_user).first()
+        
+        if not merchant_wallet or not merchant_wallet.is_active:
+            return Response({'error': 'Merchant not found or inactive'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Get merchant's wallet addresses for each supported crypto
+        wallet_addresses = {}
+        for wallet in merchant_wallet.wallets:
+            if wallet.is_active:
+                wallet_addresses[wallet.symbol] = wallet.public_key
+        
+        return Response({
+            'merchant_name': merchant_wallet.merchant_name,
+            'business_name': merchant_wallet.business_name,
+            'user_id': str(merchant_wallet.user.id),
+            'wallet_addresses': wallet_addresses,
+            'is_active': merchant_wallet.is_active
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': f'Failed to get merchant info: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+def process_merchant_payment(request):
+    """Process payment from user to merchant"""
+    try:
+        # Get user from token
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        token_value = auth_header.replace('Bearer ', '')
+        token = Token.objects(token=token_value).first()
+        if not token:
+            return Response({'error': 'Invalid token'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        user = token.user
+        
+        # Get payment data
+        merchant_name = request.data.get('merchant_name', 'curve-merchant')
+        amount = float(request.data.get('amount', 0))
+        crypto_symbol = request.data.get('crypto_symbol', 'ARC')
+        memo = request.data.get('memo', f'Payment to {merchant_name}')
+        
+        if amount <= 0:
+            return Response({'error': 'Invalid amount'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Find merchant
+        merchant_wallet = MerchantWallet.objects(merchant_name=merchant_name).first()
+        if not merchant_wallet:
+            merchant_user = User.objects(merchant_name=merchant_name, is_merchant=True).first()
+            if merchant_user:
+                merchant_wallet = MerchantWallet.objects(user=merchant_user).first()
+        
+        if not merchant_wallet or not merchant_wallet.is_active:
+            return Response({'error': 'Merchant not found or inactive'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Get merchant wallet address for the crypto
+        merchant_crypto_wallet = None
+        for wallet in merchant_wallet.wallets:
+            if wallet.symbol == crypto_symbol and wallet.is_active:
+                merchant_crypto_wallet = wallet
+                break
+        
+        if not merchant_crypto_wallet:
+            return Response({'error': f'Merchant does not accept {crypto_symbol}'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Process the transfer
+        success, message = process_crypto_transfer(
+            user,
+            merchant_wallet.user,
+            crypto_symbol,
+            amount,
+            memo
+        )
+        
+        if success:
+            # Update merchant total received
+            # Get current price for USD conversion
+            pair_name = f"{crypto_symbol}USDT"
+            trading_pair = TradingPair.objects(pair=pair_name).first()
+            usd_value = amount
+            if trading_pair:
+                usd_value = amount * trading_pair.current_price
+            
+            merchant_wallet.total_received += usd_value
+            merchant_wallet.save()
+            
+            # Generate transaction hash
+            tx_hash = generate_transaction_hash()
+            
+            return Response({
+                'message': 'Payment processed successfully',
+                'transaction_hash': tx_hash,
+                'amount': amount,
+                'crypto_symbol': crypto_symbol,
+                'merchant_address': merchant_crypto_wallet.public_key,
+                'usd_value': usd_value
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({'error': message}, status=status.HTTP_400_BAD_REQUEST)
+            
+    except Exception as e:
+        return Response({'error': f'Failed to process payment: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

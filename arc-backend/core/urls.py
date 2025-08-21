@@ -20,6 +20,10 @@ urlpatterns = [
     path('curve/cart/create/', views.create_curve_cart),
     path('curve/payment/process/', views.process_curve_payment),
     
+    # Merchant Payment System
+    path('merchant/info/', views.get_merchant_info),
+    path('merchant/payment/', views.process_merchant_payment),
+    
     # Transaction History
     path('transactions/', views.get_transaction_history),
     path('transactions/cancel/', views.cancel_transaction),
