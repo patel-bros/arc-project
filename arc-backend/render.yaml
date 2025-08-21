@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: arc-backend
+    env: python
+    buildCommand: chmod +x build.sh && ./build.sh
+    startCommand: chmod +x startup.sh && ./startup.sh
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: DJANGO_SETTINGS_MODULE
+        value: arc_backend.settings
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: "*"
+      - key: SECRET_KEY
+        generateValue: true
+    disk:
+      name: arc-backend-disk
+      mountPath: /app/data
+      sizeGB: 1
+    autoDeploy: true
