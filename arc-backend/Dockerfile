@@ -27,7 +27,7 @@ RUN pip install --upgrade pip setuptools wheel
 WORKDIR /app
 
 # Copy requirements
-COPY requirements.txt .
+COPY ./arc-backend/requirements.txt .
 
 # Install dependencies with fallbacks
 RUN pip install --no-cache-dir numpy==2.1.1 && \
@@ -43,8 +43,8 @@ RUN pip install --no-cache-dir numpy==2.1.1 && \
 COPY . .
 
 # Create directories and collect static files
-RUN mkdir -p staticfiles media && \
-    python manage.py collectstatic --noinput --clear
+RUN cd arc-backend && mkdir -p staticfiles media && \
+    python manage.py collectstatic --noinput --clear && cd ..
 
 # Create non-root user
 RUN useradd --create-home --shell /bin/bash app && \
@@ -54,5 +54,6 @@ USER app
 # Expose port
 EXPOSE $PORT
 
+WORKDIR /app/arc-backend
 # Run application
 CMD gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120 arc_backend.wsgi:application
