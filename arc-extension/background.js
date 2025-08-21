@@ -67,36 +67,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     console.log('=== PAYMENT STATUS RECEIVED ===');
     console.log('Payment status:', request.payload);
     
-    // Relay payment status to the merchant site (Curve)
-    // Try to find the Curve tab first
+    // Relay payment status to the merchant site (Curve) via content script
     chrome.tabs.query({ url: ["http://localhost:5173/*", "http://127.0.0.1:5173/*"] }, function (tabs) {
       if (tabs && tabs.length > 0) {
-        // Found Curve tab, send message directly
+        // Found Curve tab, send message to content script
         console.log('Found Curve tab:', tabs[0].id);
-        chrome.scripting.executeScript({
-          target: { tabId: tabs[0].id },
-          func: (payloadData) => {
-            console.log('Sending payment status to Curve:', payloadData);
-            window.postMessage({ 
-              type: 'ARC_PAYMENT_STATUS', 
-              payload: payloadData 
-            }, '*');
-          },
-          args: [request.payload]
-        }).then(() => {
-          console.log('Payment status sent to Curve successfully');
-        }).catch(error => {
-          console.error('Error sending payment status to Curve:', error);
-        });
-      } else {
-        // Fallback: try to send to any active tab
-        console.log('No Curve tab found, trying active tab...');
-        chrome.tabs.query({ active: true, currentWindow: true }, function (activeTabs) {
-          if (activeTabs[0]) {
+        chrome.tabs.sendMessage(tabs[0].id, {
+          type: 'ARC_PAYMENT_STATUS',
+          payload: request.payload
+        }, (response) => {
+          console.log('Message sent to content script:', response);
+          if (chrome.runtime.lastError) {
+            console.error('Error sending to content script:', chrome.runtime.lastError);
+            // Fallback: try script injection
             chrome.scripting.executeScript({
-              target: { tabId: activeTabs[0].id },
+              target: { tabId: tabs[0].id },
               func: (payloadData) => {
-                console.log('Sending payment status to active tab:', payloadData);
+                console.log('Fallback: Sending payment status to Curve:', payloadData);
                 window.postMessage({ 
                   type: 'ARC_PAYMENT_STATUS', 
                   payload: payloadData 
@@ -104,7 +91,22 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
               },
               args: [request.payload]
             }).catch(error => {
-              console.error('Error sending to active tab:', error);
+              console.error('Fallback script injection failed:', error);
+            });
+          }
+        });
+      } else {
+        // Fallback: try to send to any active tab
+        console.log('No Curve tab found, trying active tab...');
+        chrome.tabs.query({ active: true, currentWindow: true }, function (activeTabs) {
+          if (activeTabs[0]) {
+            chrome.tabs.sendMessage(activeTabs[0].id, {
+              type: 'ARC_PAYMENT_STATUS',
+              payload: request.payload
+            }, (response) => {
+              if (chrome.runtime.lastError) {
+                console.error('Error sending to active tab:', chrome.runtime.lastError);
+              }
             });
           }
         });

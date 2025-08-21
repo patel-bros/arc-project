@@ -1,5 +1,20 @@
 console.log('=== ARC EXTENSION CONTENT SCRIPT LOADED (ENHANCED) ===');
 
+// Listen for messages from background script
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log('[ARC CONTENT] Message from background:', message);
+  
+  if (message.type === 'ARC_PAYMENT_STATUS') {
+    console.log('[ARC CONTENT] Relaying payment status to webpage:', message.payload);
+    // Forward the payment status to the webpage
+    window.postMessage({
+      type: 'ARC_PAYMENT_STATUS',
+      payload: message.payload
+    }, '*');
+    sendResponse({ received: true });
+  }
+});
+
 // Inject (or ensure) a hidden anchor we can programmatically click (user gesture proxy)
 (function ensureLauncher() {
   if (document.getElementById('arc-extension-launcher')) return;

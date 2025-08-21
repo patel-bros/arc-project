@@ -88,7 +88,9 @@ const Cart = () => {
   useEffect(() => {
     // Listen for payment status from extension
     function handleMessage(event) {
+      console.log('[CURVE] Received message:', event.data); // Debug log
       if (event.data && event.data.type === 'ARC_PAYMENT_STATUS') {
+        console.log('[CURVE] Payment status received:', event.data.payload); // Debug log
         setIsPaying(false)
         const status = event.data.payload.status
         const amount = event.data.payload.amount
@@ -97,13 +99,29 @@ const Cart = () => {
         setPaymentStatus(status)
         
         if (status === 'success') {
-          console.log(`Payment successful! Amount: ${amount} ARC, Transaction: ${transactionId}`)
+          console.log(`[CURVE] Payment successful! Amount: ${amount} ARC, Transaction: ${transactionId}`)
           completeOrder(transactionId, amount, 'Arc Wallet')
+        } else if (status === 'failed') {
+          console.log('[CURVE] Payment failed')
+          setPaymentStatus('Payment failed. Please try again.')
+        } else if (status === 'cancelled') {
+          console.log('[CURVE] Payment cancelled')
+          const reason = event.data.payload.reason || 'Payment was cancelled'
+          setPaymentStatus(`Payment cancelled: ${reason}`)
+          // Reset the UI to allow retry
+          setTimeout(() => {
+            setPaymentStatus(null)
+          }, 3000)
         }
       }
     }
+    
+    console.log('[CURVE] Setting up message listener'); // Debug log
     window.addEventListener('message', handleMessage)
-    return () => window.removeEventListener('message', handleMessage)
+    return () => {
+      console.log('[CURVE] Removing message listener'); // Debug log
+      window.removeEventListener('message', handleMessage)
+    }
   }, [cartItems, total])
 
   const completeOrder = (transactionId, amount, paymentMethod) => {

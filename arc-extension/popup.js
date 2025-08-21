@@ -2,56 +2,72 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Clear payment badge when popup opens
   chrome.runtime.sendMessage({ type: 'CLEAR_PAYMENT_BADGE' });
   
-  // Handle extension closure during payment
+  // Handle extension closure during payment or payment setup
   window.addEventListener('beforeunload', async () => {
-    if (window.paymentInProgress && window.currentTransactionHash) {
-      console.log('Extension closing during payment - cancelling transaction...');
-      try {
-        const token = await getToken();
-        if (token) {
-          await fetch('http://localhost:8000/api/transactions/cancel/', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ tx_hash: window.currentTransactionHash })
-          });
+    if (window.paymentInProgress || window.paymentInitiated) {
+      console.log('Extension closing during payment process - cancelling...');
+      
+      // If we have a transaction hash, cancel it on the backend
+      if (window.currentTransactionHash) {
+        try {
+          const token = await getToken();
+          if (token) {
+            await fetch('http://localhost:8000/api/transactions/cancel/', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ tx_hash: window.currentTransactionHash })
+            });
+          }
+        } catch (error) {
+          console.error('Error cancelling transaction:', error);
         }
-      } catch (error) {
-        console.error('Error cancelling transaction:', error);
       }
       
+      // Always notify Curve of cancellation
       chrome.runtime.sendMessage({ 
         type: 'ARC_PAYMENT_STATUS', 
-        payload: { status: 'cancelled' } 
+        payload: { 
+          status: 'cancelled',
+          reason: 'Extension closed during payment process'
+        } 
       });
     }
   });
   
   // Also handle when popup is closed via ESC or clicking outside
   window.addEventListener('unload', async () => {
-    if (window.paymentInProgress && window.currentTransactionHash) {
-      console.log('Extension popup closed during payment - cancelling transaction...');
-      try {
-        const token = await getToken();
-        if (token) {
-          await fetch('http://localhost:8000/api/transactions/cancel/', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ tx_hash: window.currentTransactionHash })
-          });
+    if (window.paymentInProgress || window.paymentInitiated) {
+      console.log('Extension popup closed during payment process - cancelling...');
+      
+      // If we have a transaction hash, cancel it on the backend
+      if (window.currentTransactionHash) {
+        try {
+          const token = await getToken();
+          if (token) {
+            await fetch('http://localhost:8000/api/transactions/cancel/', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ tx_hash: window.currentTransactionHash })
+            });
+          }
+        } catch (error) {
+          console.error('Error cancelling transaction:', error);
         }
-      } catch (error) {
-        console.error('Error cancelling transaction:', error);
       }
       
+      // Always notify Curve of cancellation
       chrome.runtime.sendMessage({ 
         type: 'ARC_PAYMENT_STATUS', 
-        payload: { status: 'cancelled' } 
+        payload: { 
+          status: 'cancelled',
+          reason: 'Extension popup closed'
+        } 
       });
     }
   });
@@ -68,6 +84,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const paymentSection = document.getElementById('payment-section');
   const paymentAmountEl = document.getElementById('payment-amount');
   const faceAuthBtn = document.getElementById('faceAuthBtn');
+  const cancelPaymentBtn = document.getElementById('cancelPaymentBtn');
   const paymentStatus = document.getElementById('paymentStatus');
   const showManualTransfer = document.getElementById('showManualTransfer');
   const manualSection = document.getElementById('manual-section');
@@ -313,6 +330,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       curveAmount = parseFloat(data.arc_order_amount);
       console.log('Curve amount:', curveAmount); // Debug log
       
+      // Set payment initiated flag - payment process has started
+      window.paymentInitiated = true;
+      window.paymentInProgress = false;
+      window.currentTransactionHash = null;
+      
       // Create payment amount display if it doesn't exist
       let paymentAmountEl = document.getElementById('payment-amount');
       if (!paymentAmountEl) {
@@ -396,6 +418,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               
               // Payment completed successfully
               window.paymentInProgress = false;
+              window.paymentInitiated = false; // Clear the initiated flag
               
               // Show initial success message
               paymentStatus.innerText = `✅ Payment Successful!\nAmount: ${curveAmount} ARC\nTo: Curve Merchant\nTx: ${result.transaction.tx_hash.substring(0, 10)}...`;
@@ -446,6 +469,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             } else {
               // Payment failed
               window.paymentInProgress = false;
+              window.paymentInitiated = false; // Clear the initiated flag
               window.currentTransactionHash = null;
               paymentStatus.innerText = 'Payment failed: ' + (result.error || 'Unknown error');
               chrome.runtime.sendMessage({ type: 'ARC_PAYMENT_STATUS', payload: { status: 'failed' } });
@@ -453,6 +477,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           } catch (error) {
             // Payment failed with error
             window.paymentInProgress = false;
+            window.paymentInitiated = false; // Clear the initiated flag
             window.currentTransactionHash = null;
             console.error('Payment error:', error);
             paymentStatus.innerText = 'Payment failed: ' + error.message;
@@ -577,5 +602,51 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else {
       merchantWalletInfo.innerText = result.error || 'Not found.';
     }
+  };
+  
+  // Cancel payment button handler
+  if (cancelPaymentBtn) cancelPaymentBtn.onclick = async () => {
+    console.log('Cancel payment button clicked');
+    
+    // If transaction is in progress, cancel it
+    if (window.currentTransactionHash) {
+      try {
+        const token = await getToken();
+        if (token) {
+          await fetch('http://localhost:8000/api/transactions/cancel/', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ tx_hash: window.currentTransactionHash })
+          });
+        }
+      } catch (error) {
+        console.error('Error cancelling transaction:', error);
+      }
+    }
+    
+    // Reset payment flags
+    window.paymentInProgress = false;
+    window.paymentInitiated = false;
+    window.currentTransactionHash = null;
+    
+    // Notify Curve of cancellation
+    chrome.runtime.sendMessage({ 
+      type: 'ARC_PAYMENT_STATUS', 
+      payload: { 
+        status: 'cancelled',
+        reason: 'User cancelled payment manually'
+      } 
+    });
+    
+    // Update UI
+    paymentStatus.innerText = 'Payment cancelled by user';
+    
+    // Close extension after a short delay
+    setTimeout(() => {
+      chrome.runtime.sendMessage({ type: 'CLOSE_EXTENSION_TAB' });
+    }, 1500);
   };
 });
