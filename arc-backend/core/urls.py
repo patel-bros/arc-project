@@ -5,6 +5,7 @@ urlpatterns = [
     # Authentication
     path('register/', views.register),
     path('login/', views.login),
+    path('face-auth/', views.face_auth),
     
     # Portfolio & Wallet Management
     path('portfolio/', views.get_portfolio),
@@ -21,6 +22,7 @@ urlpatterns = [
     
     # Transaction History
     path('transactions/', views.get_transaction_history),
+    path('transactions/cancel/', views.cancel_transaction),
     
     # System Management
     path('initialize/', views.initialize_system),

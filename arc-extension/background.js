@@ -64,21 +64,59 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
   
   if (request.type === "ARC_PAYMENT_STATUS") {
-    // Relay payment status to the merchant site
-    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-      if (tabs[0]) {
+    console.log('=== PAYMENT STATUS RECEIVED ===');
+    console.log('Payment status:', request.payload);
+    
+    // Relay payment status to the merchant site (Curve)
+    // Try to find the Curve tab first
+    chrome.tabs.query({ url: ["http://localhost:5173/*", "http://127.0.0.1:5173/*"] }, function (tabs) {
+      if (tabs && tabs.length > 0) {
+        // Found Curve tab, send message directly
+        console.log('Found Curve tab:', tabs[0].id);
         chrome.scripting.executeScript({
           target: { tabId: tabs[0].id },
-          func: (status) => {
-            window.postMessage({ type: 'ARC_PAYMENT_STATUS', payload: { status } }, '*');
+          func: (payloadData) => {
+            console.log('Sending payment status to Curve:', payloadData);
+            window.postMessage({ 
+              type: 'ARC_PAYMENT_STATUS', 
+              payload: payloadData 
+            }, '*');
           },
-          args: [request.payload.status]
+          args: [request.payload]
+        }).then(() => {
+          console.log('Payment status sent to Curve successfully');
+        }).catch(error => {
+          console.error('Error sending payment status to Curve:', error);
+        });
+      } else {
+        // Fallback: try to send to any active tab
+        console.log('No Curve tab found, trying active tab...');
+        chrome.tabs.query({ active: true, currentWindow: true }, function (activeTabs) {
+          if (activeTabs[0]) {
+            chrome.scripting.executeScript({
+              target: { tabId: activeTabs[0].id },
+              func: (payloadData) => {
+                console.log('Sending payment status to active tab:', payloadData);
+                window.postMessage({ 
+                  type: 'ARC_PAYMENT_STATUS', 
+                  payload: payloadData 
+                }, '*');
+              },
+              args: [request.payload]
+            }).catch(error => {
+              console.error('Error sending to active tab:', error);
+            });
+          }
         });
       }
     });
     
-    // Clear the badge after payment
-    chrome.action.setBadgeText({ text: "" });
+    // Clear the badge after payment (except for pending status)
+    if (request.payload.status !== 'pending') {
+      chrome.action.setBadgeText({ text: "" });
+    }
+    
+    sendResponse({ statusSent: true });
   }
   
   if (request.type === "CLEAR_PAYMENT_BADGE") {

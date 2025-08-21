@@ -11,6 +11,22 @@ class User(Document):
     is_merchant = BooleanField(default=False)
     merchant_name = StringField(max_length=100)
     kyc_verified = BooleanField(default=False)
+    
+    @property
+    def is_authenticated(self):
+        """
+        Always return True. This is a way to tell if the user has been
+        authenticated in templates. This is required for Django REST Framework.
+        """
+        return True
+    
+    @property
+    def is_anonymous(self):
+        """
+        Always return False. This is a way to tell if the user has been
+        authenticated in templates.
+        """
+        return False
 
 class Token(Document):
     user = ReferenceField(User, reverse_delete_rule=CASCADE)

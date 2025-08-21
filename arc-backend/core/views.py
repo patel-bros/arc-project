@@ -18,6 +18,42 @@ import uuid
 # Constants
 SYMBOLS = ['BTC', 'ETH', 'ARC', 'SOL', 'USDT', 'BNB', 'ADA', 'DOT', 'LINK', 'LTC']
 
+# Simple token authentication using database
+class SimpleTokenAuthentication(BaseAuthentication):
+    def authenticate(self, request):
+        auth_header = request.META.get('HTTP_AUTHORIZATION')
+        print(f"Auth header: {auth_header}")  # Debug
+        
+        if not auth_header:
+            return None
+            
+        try:
+            token_type, token = auth_header.split(' ', 1)
+            # Accept both 'Token' and 'Bearer' authentication types
+            if token_type.lower() not in ['token', 'bearer']:
+                return None
+        except ValueError:
+            return None
+        
+        print(f"Looking for token: {token}")  # Debug
+        
+        # Look up token in database
+        try:
+            token_obj = Token.objects(token=token).first()
+            if token_obj and token_obj.user:
+                print(f"Found user: {token_obj.user.username}")  # Debug
+                return (token_obj.user, token)  # Return (user, auth) tuple
+            else:
+                print("Token not found in database")  # Debug
+        except Exception as e:
+            print(f"Error finding token: {e}")
+        
+        print("No matching token found")  # Debug
+        return None
+
+    def authenticate_header(self, request):
+        return 'Token'
+
 # Authentication views
 @api_view(['POST'])
 def register(request):
@@ -457,8 +493,14 @@ def process_curve_payment(request):
         return Response({'error': f'Payment processing failed: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # Transaction history
-@api_view(['GET'])
+@api_view(['GET', 'POST'])
 def get_transaction_history(request):
+    if request.method == 'GET':
+        return handle_get_transactions(request)
+    elif request.method == 'POST':
+        return handle_create_transaction(request)
+
+def handle_get_transactions(request):
     try:
         # Get user from token
         auth_header = request.headers.get('Authorization')
@@ -494,6 +536,135 @@ def get_transaction_history(request):
         
     except Exception as e:
         return Response({'error': f'Failed to get transaction history: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+def handle_create_transaction(request):
+    try:
+        # Get user from token
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        token_value = auth_header.replace('Bearer ', '')
+        token = Token.objects(token=token_value).first()
+        if not token:
+            return Response({'error': 'Invalid token'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        user = token.user
+        
+        # Get transaction data from request
+        to_address = request.data.get('to_address')
+        amount = float(request.data.get('amount', 0))
+        crypto_symbol = request.data.get('crypto_symbol', 'ARC')
+        transaction_type = request.data.get('transaction_type', 'transfer')
+        memo = request.data.get('memo', '')
+        
+        if not to_address or amount <= 0:
+            return Response({'error': 'Invalid transaction data'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Get user's portfolio to check balance
+        portfolio = Portfolio.objects(user=user).first()
+        if not portfolio:
+            return Response({'error': 'Portfolio not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Find the wallet for the specified crypto
+        wallet = None
+        for w in portfolio.wallets:
+            if w.symbol == crypto_symbol:
+                wallet = w
+                break
+        
+        if not wallet:
+            return Response({'error': f'{crypto_symbol} wallet not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Check if user has sufficient balance
+        if wallet.balance < amount:
+            return Response({'error': 'Insufficient balance'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Create transaction
+        import uuid
+        tx_hash = str(uuid.uuid4())
+        
+        transaction = Transaction(
+            user=user,
+            tx_hash=tx_hash,
+            transaction_type=transaction_type,
+            crypto_symbol=crypto_symbol,
+            amount=amount,
+            to_address=to_address,
+            from_address=wallet.public_key,
+            status='confirmed',
+            fee=0.001,  # Small fee
+            memo=memo
+        )
+        transaction.save()
+        
+        # Update wallet balance
+        wallet.balance -= amount
+        portfolio.save()
+        
+        # Return transaction details
+        return Response({
+            'transaction': {
+                'tx_hash': transaction.tx_hash,
+                'transaction_type': transaction.transaction_type,
+                'crypto_symbol': transaction.crypto_symbol,
+                'amount': transaction.amount,
+                'to_address': transaction.to_address,
+                'from_address': transaction.from_address,
+                'status': transaction.status,
+                'fee': transaction.fee,
+                'memo': transaction.memo,
+                'created_at': transaction.created_at
+            }
+        }, status=status.HTTP_201_CREATED)
+        
+    except Exception as e:
+        return Response({'error': f'Failed to create transaction: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@authentication_classes([SimpleTokenAuthentication])
+@permission_classes([IsAuthenticated])
+def cancel_transaction(request):
+    try:
+        user = request.user
+        tx_hash = request.data.get('tx_hash')
+        
+        if not tx_hash:
+            return Response({'error': 'Transaction hash required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Find the transaction
+        transaction = Transaction.objects(user=user, tx_hash=tx_hash).first()
+        if not transaction:
+            return Response({'error': 'Transaction not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Only allow cancellation of pending transactions
+        if transaction.status != 'pending':
+            return Response({'error': 'Only pending transactions can be cancelled'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Update transaction status to failed
+        transaction.status = 'failed'
+        transaction.memo = (transaction.memo or '') + ' [CANCELLED BY USER]'
+        transaction.save()
+        
+        # Refund the amount to user's wallet if it was already deducted
+        portfolio = Portfolio.objects(user=user).first()
+        if portfolio:
+            for wallet in portfolio.wallets:
+                if wallet.symbol == transaction.crypto_symbol:
+                    wallet.balance += transaction.amount
+                    portfolio.save()
+                    break
+        
+        return Response({
+            'message': 'Transaction cancelled successfully',
+            'transaction': {
+                'tx_hash': transaction.tx_hash,
+                'status': transaction.status
+            }
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': f'Failed to cancel transaction: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # Initialize system
 @api_view(['POST'])
@@ -581,41 +752,6 @@ def get_wallet(request):
         },
         'token': token
     })
-
-# Simple token authentication using database
-class SimpleTokenAuthentication(BaseAuthentication):
-    def authenticate(self, request):
-        auth_header = request.META.get('HTTP_AUTHORIZATION')
-        print(f"Auth header: {auth_header}")  # Debug
-        
-        if not auth_header:
-            return None
-            
-        try:
-            token_type, token = auth_header.split(' ', 1)
-            if token_type.lower() != 'token':
-                return None
-        except ValueError:
-            return None
-        
-        print(f"Looking for token: {token}")  # Debug
-        
-        # Look up token in database
-        try:
-            token_obj = Token.objects(token=token).first()
-            if token_obj and token_obj.user:
-                print(f"Found user: {token_obj.user.username}")  # Debug
-                return (token_obj.user, token)  # Return (user, auth) tuple
-            else:
-                print("Token not found in database")  # Debug
-        except Exception as e:
-            print(f"Error finding token: {e}")
-        
-        print("No matching token found")  # Debug
-        return None
-
-    def authenticate_header(self, request):
-        return 'Token'
 
 @api_view(['POST'])
 @authentication_classes([SimpleTokenAuthentication])

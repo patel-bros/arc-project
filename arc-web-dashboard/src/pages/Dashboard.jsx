@@ -340,8 +340,8 @@ const Dashboard = () => {
                 </svg>
               </div>
             </div>
-            <p className="text-3xl font-bold text-white mb-1">{formatCurrency(portfolioData.totalValue)}</p>
-            <p className={`text-sm font-medium ${portfolioData.dayChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+            <p className="text-3xl font-bold text-white mb-1 font-mono">{formatCurrency(portfolioData.totalValue)}</p>
+            <p className={`text-sm font-medium font-mono ${portfolioData.dayChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
               {portfolioData.dayChange >= 0 ? '+' : ''}{formatCurrency(portfolioData.dayChange)} ({formatPercentage(portfolioData.dayChangePercent)})
             </p>
           </div>
@@ -355,8 +355,8 @@ const Dashboard = () => {
                 </svg>
               </div>
             </div>
-            <p className="text-2xl font-bold text-white mb-1">{portfolioData.topGainer.symbol}</p>
-            <p className="text-green-400 text-sm font-medium">+{formatPercentage(Math.abs(portfolioData.topGainer.change))}</p>
+            <p className="text-2xl font-bold text-white mb-1 font-mono">{portfolioData.topGainer.symbol}</p>
+            <p className="text-green-400 text-sm font-medium font-mono">+{formatPercentage(Math.abs(portfolioData.topGainer.change))}</p>
           </div>
 
           <div className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6 hover:border-red-400/40 transition-all duration-300">
@@ -432,12 +432,12 @@ const Dashboard = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="text-right text-white py-4">${asset.price.toFixed(8)}</td>
-                      <td className={`text-right py-4 ${asset.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      <td className="text-right text-white py-4 font-mono">${asset.price.toFixed(8)}</td>
+                      <td className={`text-right py-4 font-mono ${asset.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                         {formatPercentage(asset.change)}
                       </td>
-                      <td className="text-right text-gray-300 py-4">{asset.volume}</td>
-                      <td className="text-right text-gray-300 py-4">{asset.marketCap}</td>
+                      <td className="text-right text-gray-300 py-4 font-mono">{asset.volume}</td>
+                      <td className="text-right text-gray-300 py-4 font-mono">{asset.marketCap}</td>
                     </tr>
                   ))}
                 </tbody>

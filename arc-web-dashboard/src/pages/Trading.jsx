@@ -78,14 +78,14 @@ const Trading = () => {
                 }`}
               >
                 <div className="flex justify-between items-center">
-                  <span className="text-white font-medium">{pair.pair}</span>
-                  <span className={`text-sm ${pair.change.includes('+') ? 'text-green-400' : 'text-red-400'}`}>
+                  <span className="text-white font-medium font-mono">{pair.pair}</span>
+                  <span className={`text-sm font-mono ${pair.change.includes('+') ? 'text-green-400' : 'text-red-400'}`}>
                     {pair.change}
                   </span>
                 </div>
                 <div className="flex justify-between items-center mt-1">
-                  <span className="text-gray-300 text-sm">${pair.price.toLocaleString()}</span>
-                  <span className="text-gray-400 text-xs">Vol: {pair.volume}</span>
+                  <span className="text-gray-300 text-sm font-mono">${pair.price.toLocaleString()}</span>
+                  <span className="text-gray-400 text-xs font-mono">Vol: {pair.volume}</span>
                 </div>
               </div>
             ))}
@@ -144,7 +144,7 @@ const Trading = () => {
               
               {/* Asks (Sell Orders) */}
               {orderBook.asks.slice().reverse().map((ask, idx) => (
-                <div key={idx} className="grid grid-cols-3 text-xs text-red-400 py-1">
+                <div key={idx} className="grid grid-cols-3 text-xs text-red-400 py-1 font-mono">
                   <span>{ask.price.toFixed(2)}</span>
                   <span>{ask.quantity.toFixed(4)}</span>
                   <span>{ask.total.toFixed(2)}</span>
@@ -153,13 +153,13 @@ const Trading = () => {
               
               {/* Current Price */}
               <div className="py-2 text-center">
-                <span className="text-white font-bold text-lg">43,250.50</span>
-                <span className="text-green-400 text-sm ml-2">+2.45%</span>
+                <span className="text-white font-bold text-lg font-mono">43,250.50</span>
+                <span className="text-green-400 text-sm ml-2 font-mono">+2.45%</span>
               </div>
               
               {/* Bids (Buy Orders) */}
               {orderBook.bids.map((bid, idx) => (
-                <div key={idx} className="grid grid-cols-3 text-xs text-green-400 py-1">
+                <div key={idx} className="grid grid-cols-3 text-xs text-green-400 py-1 font-mono">
                   <span>{bid.price.toFixed(2)}</span>
                   <span>{bid.quantity.toFixed(4)}</span>
                   <span>{bid.total.toFixed(2)}</span>
@@ -183,7 +183,7 @@ const Trading = () => {
               </div>
               
               {recentTrades.map((trade, idx) => (
-                <div key={idx} className={`grid grid-cols-3 text-xs py-1 ${trade.side === 'buy' ? 'text-green-400' : 'text-red-400'}`}>
+                <div key={idx} className={`grid grid-cols-3 text-xs py-1 font-mono ${trade.side === 'buy' ? 'text-green-400' : 'text-red-400'}`}>
                   <span>{trade.price.toFixed(2)}</span>
                   <span>{trade.quantity.toFixed(4)}</span>
                   <span className="text-gray-400">{trade.time}</span>

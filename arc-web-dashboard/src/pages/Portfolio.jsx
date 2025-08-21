@@ -142,10 +142,10 @@ const Portfolio = () => {
                 </svg>
               </div>
             </div>
-            <p className={`text-3xl font-bold ${portfolioData.totalPnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+            <p className={`text-3xl font-bold font-mono ${portfolioData.totalPnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
               {portfolioData.totalPnL >= 0 ? '+' : ''}{formatCurrency(portfolioData.totalPnL)}
             </p>
-            <p className={`text-sm ${portfolioData.totalPnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+            <p className={`text-sm font-mono ${portfolioData.totalPnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
               {formatPercentage(portfolioData.totalPnLPercentage)}
             </p>
           </div>
@@ -292,13 +292,13 @@ const Portfolio = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="text-right text-white py-4">{holding.balance.toFixed(4)}</td>
-                    <td className="text-right text-white py-4">{formatCurrency(holding.currentPrice)}</td>
-                    <td className="text-right text-white py-4">{formatCurrency(holding.value)}</td>
+                    <td className="text-right text-white py-4 font-mono">{holding.balance.toFixed(4)}</td>
+                    <td className="text-right text-white py-4 font-mono">{formatCurrency(holding.currentPrice)}</td>
+                    <td className="text-right text-white py-4 font-mono">{formatCurrency(holding.value)}</td>
                     {showPnL && (
                       <>
-                        <td className="text-right text-gray-300 py-4">{formatCurrency(holding.avgPrice)}</td>
-                        <td className={`text-right py-4 ${holding.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        <td className="text-right text-gray-300 py-4 font-mono">{formatCurrency(holding.avgPrice)}</td>
+                        <td className={`text-right py-4 font-mono ${holding.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                           <div>
                             <p>{holding.pnl >= 0 ? '+' : ''}{formatCurrency(holding.pnl)}</p>
                             <p className="text-sm">{formatPercentage(holding.pnlPercentage)}</p>

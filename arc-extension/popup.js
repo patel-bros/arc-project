@@ -2,6 +2,60 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Clear payment badge when popup opens
   chrome.runtime.sendMessage({ type: 'CLEAR_PAYMENT_BADGE' });
   
+  // Handle extension closure during payment
+  window.addEventListener('beforeunload', async () => {
+    if (window.paymentInProgress && window.currentTransactionHash) {
+      console.log('Extension closing during payment - cancelling transaction...');
+      try {
+        const token = await getToken();
+        if (token) {
+          await fetch('http://localhost:8000/api/transactions/cancel/', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ tx_hash: window.currentTransactionHash })
+          });
+        }
+      } catch (error) {
+        console.error('Error cancelling transaction:', error);
+      }
+      
+      chrome.runtime.sendMessage({ 
+        type: 'ARC_PAYMENT_STATUS', 
+        payload: { status: 'cancelled' } 
+      });
+    }
+  });
+  
+  // Also handle when popup is closed via ESC or clicking outside
+  window.addEventListener('unload', async () => {
+    if (window.paymentInProgress && window.currentTransactionHash) {
+      console.log('Extension popup closed during payment - cancelling transaction...');
+      try {
+        const token = await getToken();
+        if (token) {
+          await fetch('http://localhost:8000/api/transactions/cancel/', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ tx_hash: window.currentTransactionHash })
+          });
+        }
+      } catch (error) {
+        console.error('Error cancelling transaction:', error);
+      }
+      
+      chrome.runtime.sendMessage({ 
+        type: 'ARC_PAYMENT_STATUS', 
+        payload: { status: 'cancelled' } 
+      });
+    }
+  });
+  
   // Elements
   const addressEl = document.getElementById('address');
   const balanceEl = document.getElementById('balance');
@@ -190,14 +244,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     await clearToken();
   }
   async function faceAuth(token, imageData) {
+    console.log('faceAuth called with token:', token); // Debug log
     const formData = new FormData();
     formData.append('image', imageData);
+    console.log('Sending face auth request to:', 'http://localhost:8000/api/face-auth/'); // Debug log
+    console.log('Authorization header:', `Bearer ${token}`); // Debug log
+    
     const res = await fetch('http://localhost:8000/api/face-auth/', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` },
       body: formData
     });
-    return (await res.json()).face_ok;
+    
+    console.log('Face auth response status:', res.status); // Debug log
+    const responseData = await res.json();
+    console.log('Face auth response data:', responseData); // Debug log
+    
+    return responseData.face_ok;
   }
   async function createTransaction(token, toAddress, amount, transactionType = 'transfer') {
     const res = await fetch('http://localhost:8000/api/transactions/', {
@@ -288,13 +351,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       faceAuthBtn.onclick = async () => {
         paymentStatus.innerText = 'Authenticating...';
         
-        // Show current wallet info during face auth
+        // Get token first and validate
         const token = await getToken();
-        if (token) {
-          const wallet = await fetchWallet(token);
-          if (wallet) {
-            paymentStatus.innerText = `Wallet: ${wallet.public_key?.substring(0, 20)}...\nBalance: ${wallet.balance} ARC\nAuthenticating...`;
-          }
+        if (!token) {
+          paymentStatus.innerText = 'Please login first.';
+          showSection('login-section');
+          return;
+        }
+        
+        console.log('Face auth token:', token); // Debug log
+        
+        // Show current wallet info during face auth
+        const wallet = await fetchWallet(token);
+        if (wallet) {
+          paymentStatus.innerText = `Wallet: ${wallet.public_key?.substring(0, 20)}...\nBalance: ${wallet.balance} ARC\nAuthenticating...`;
         }
         
         // Capture frame
@@ -303,12 +373,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         canvas.height = video.videoHeight;
         canvas.getContext('2d').drawImage(video, 0, 0);
         canvas.toBlob(async (blob) => {
-          if (!token) {
-            paymentStatus.innerText = 'Please login first.';
-            showSection('login-section');
-            return;
-          }
           try {
+            console.log('Sending face auth request with token:', token); // Debug log
             const faceOk = await faceAuth(token, blob);
             if (!faceOk) {
               paymentStatus.innerText = 'Face authentication failed.';
@@ -318,13 +384,30 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             paymentStatus.innerText = 'Processing payment...';
             
+            // Set a flag to track payment in progress
+            window.paymentInProgress = true;
+            window.currentTransactionHash = null;
+            
             // For demo, use merchant_name = 'curve-merchant'
             const result = await createTransaction(token, 'curve-merchant', curveAmount, 'purchase');
             if (result.transaction && result.transaction.tx_hash) {
+              // Store transaction hash for potential cancellation
+              window.currentTransactionHash = result.transaction.tx_hash;
+              
+              // Payment completed successfully
+              window.paymentInProgress = false;
+              
               // Show initial success message
               paymentStatus.innerText = `✅ Payment Successful!\nAmount: ${curveAmount} ARC\nTo: Curve Merchant\nTx: ${result.transaction.tx_hash.substring(0, 10)}...`;
               
-              // Send success message to Curve
+              // Update wallet balance immediately
+              const updatedWallet = await fetchWallet(token);
+              if (updatedWallet) {
+                balanceEl.innerText = 'Balance: ' + updatedWallet.balance;
+              }
+              
+              // Send success message to Curve with delay to ensure it's received
+              console.log('Sending success message to Curve...');
               chrome.runtime.sendMessage({ 
                 type: 'ARC_PAYMENT_STATUS', 
                 payload: { 
@@ -333,39 +416,44 @@ document.addEventListener('DOMContentLoaded', async () => {
                   transactionId: result.transaction.tx_hash,
                   currency: 'ARC'
                 } 
+              }, (response) => {
+                console.log('Success message sent to Curve:', response);
               });
               
-              // Update wallet balance immediately
-              const updatedWallet = await fetchWallet(token);
-              if (updatedWallet) {
-                balanceEl.innerText = 'Balance: ' + updatedWallet.balance;
-              }
-              
-              // Countdown timer for auto-close
-              let countdown = 3;
-              const countdownInterval = setInterval(() => {
-                paymentStatus.innerText = `✅ Payment Successful!\nAmount: ${curveAmount} ARC\nTo: Curve Merchant\n\nClosing in ${countdown} seconds...`;
-                countdown--;
-                
-                if (countdown < 0) {
-                  clearInterval(countdownInterval);
-                  console.log('Sending CLOSE_EXTENSION_TAB message...');
-                  chrome.runtime.sendMessage({ type: 'CLOSE_EXTENSION_TAB' }, (response) => {
-                    console.log('Close response:', response);
-                    if (chrome.runtime.lastError) {
-                      console.error('Close error:', chrome.runtime.lastError);
-                      // Fallback: try to close window
-                      window.close();
-                    }
-                  });
-                }
-              }, 1000);
+              // Wait a bit to ensure message is processed
+              setTimeout(() => {
+                // Countdown timer for auto-close
+                let countdown = 5; // Increased from 3 to 5 seconds
+                const countdownInterval = setInterval(() => {
+                  paymentStatus.innerText = `✅ Payment Successful!\nAmount: ${curveAmount} ARC\nTo: Curve Merchant\n\nClosing in ${countdown} seconds...`;
+                  countdown--;
+                  
+                  if (countdown < 0) {
+                    clearInterval(countdownInterval);
+                    console.log('Sending CLOSE_EXTENSION_TAB message...');
+                    chrome.runtime.sendMessage({ type: 'CLOSE_EXTENSION_TAB' }, (response) => {
+                      console.log('Close response:', response);
+                      if (chrome.runtime.lastError) {
+                        console.error('Close error:', chrome.runtime.lastError);
+                        // Fallback: try to close window
+                        window.close();
+                      }
+                    });
+                  }
+                }, 1000);
+              }, 1000); // Wait 1 second before starting countdown
               
             } else {
+              // Payment failed
+              window.paymentInProgress = false;
+              window.currentTransactionHash = null;
               paymentStatus.innerText = 'Payment failed: ' + (result.error || 'Unknown error');
               chrome.runtime.sendMessage({ type: 'ARC_PAYMENT_STATUS', payload: { status: 'failed' } });
             }
           } catch (error) {
+            // Payment failed with error
+            window.paymentInProgress = false;
+            window.currentTransactionHash = null;
             console.error('Payment error:', error);
             paymentStatus.innerText = 'Payment failed: ' + error.message;
             chrome.runtime.sendMessage({ type: 'ARC_PAYMENT_STATUS', payload: { status: 'failed' } });
