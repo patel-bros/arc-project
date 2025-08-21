@@ -185,10 +185,13 @@ const Home = () => {
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center space-x-4">
               <div className="relative">
-                <div className="w-12 h-12 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/25">
-                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                  </svg>
+                <div className="w-16 h-16 bg-gradient-to-r from-cyan-400/20 to-blue-500/20 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/25 backdrop-blur-sm border border-cyan-400/30">
+                  <img 
+                    src="/curve.png" 
+                    alt="Curve Logo" 
+                    className="w-12 h-12 object-contain filter drop-shadow-lg rounded-lg"
+                    style={{ imageRendering: 'crisp-edges' }}
+                  />
                 </div>
                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-r from-pink-500 to-violet-500 rounded-full animate-pulse"></div>
               </div>
@@ -229,6 +232,21 @@ const Home = () => {
         {/* Hero Section */}
         <section className="text-center mb-20">
           <div className="mb-8">
+            {/* Large Logo in Hero Section */}
+            <div className="flex justify-center mb-8">
+              <div className="relative group">
+                <div className="w-32 h-32 bg-gradient-to-r from-cyan-400/20 to-purple-600/20 rounded-3xl flex items-center justify-center shadow-2xl shadow-cyan-500/25 backdrop-blur-sm border border-cyan-400/30 hover:scale-110 transition-all duration-500">
+                  <img 
+                    src="/curve.png" 
+                    alt="Curve Logo" 
+                    className="w-24 h-24 object-contain filter drop-shadow-2xl group-hover:drop-shadow-[0_0_30px_rgba(6,182,212,0.8)] transition-all duration-500 rounded-2xl"
+                    style={{ imageRendering: 'crisp-edges' }}
+                  />
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/20 to-purple-600/20 rounded-3xl blur-xl opacity-50 group-hover:opacity-75 transition-opacity duration-500"></div>
+              </div>
+            </div>
+            
             <h2 className="text-6xl lg:text-7xl font-black mb-6 leading-tight">
               Welcome to{' '}
               <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent animate-pulse">
@@ -582,7 +600,16 @@ const Home = () => {
       <footer className="relative z-10 mt-24 border-t border-slate-800/50 backdrop-blur-xl bg-slate-900/80">
         <div className="max-w-7xl mx-auto px-6 lg:px-8 py-12">
           <div className="text-center">
-            <div className="mb-6">
+            <div className="mb-6 flex flex-col items-center">
+              {/* Footer Logo */}
+              <div className="w-20 h-20 bg-gradient-to-r from-cyan-400/20 to-purple-600/20 rounded-2xl flex items-center justify-center shadow-lg shadow-cyan-500/25 backdrop-blur-sm border border-cyan-400/30 mb-4">
+                <img 
+                  src="/curve.png" 
+                  alt="Curve Logo" 
+                  className="w-14 h-14 object-contain filter drop-shadow-lg rounded-xl"
+                  style={{ imageRendering: 'crisp-edges' }}
+                />
+              </div>
               <h4 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent mb-2">
                 Curve Marketplace
               </h4>

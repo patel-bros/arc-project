@@ -247,8 +247,13 @@ const Cart = () => {
             
             <div className="flex items-center space-x-4">
               <div className="relative">
-                <div className="w-12 h-12 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/25">
-                  <ShoppingCartIcon />
+                <div className="w-16 h-16 bg-gradient-to-r from-cyan-400/20 to-blue-500/20 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/25 backdrop-blur-sm border border-cyan-400/30">
+                  <img 
+                    src="/curve.png" 
+                    alt="Curve Logo" 
+                    className="w-12 h-12 object-contain filter drop-shadow-lg rounded-lg"
+                    style={{ imageRendering: 'crisp-edges' }}
+                  />
                 </div>
                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-r from-pink-500 to-violet-500 rounded-full animate-pulse"></div>
               </div>
