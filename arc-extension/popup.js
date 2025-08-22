@@ -1,22 +1,40 @@
-﻿// Load configuration (config.js should be loaded before this script in manifest.json)
-const EXTENSION_CONFIG = window.EXTENSION_CONFIG || {
-  API_BASE_URL: 'https://arc-backend-production-5f89.up.railway.app',
-  API_ENDPOINTS: {
-    login: '/api/login/',
-    register: '/api/register/',
-    portfolio: '/api/portfolio/',
-    wallet: '/api/wallet/',
-    transfer: '/api/transfer/',
-    merchant: '/api/merchant/',
-    face_auth: '/api/face-auth/',
-    market_data: '/api/market-data/',
-    transactions: '/api/transactions/'
-  }
-};
+﻿// Use configuration from config.js (loaded before this script in popup.html)
+// Fallback configuration if config.js fails to load
+if (!window.EXTENSION_CONFIG) {
+  window.EXTENSION_CONFIG = {
+    API_BASE_URL: 'http://localhost:8000',
+    API_ENDPOINTS: {
+      login: '/api/login/',
+      register: '/api/register/',
+      portfolio: '/api/portfolio/',
+      wallet: '/api/wallet/',
+      transfer: '/api/transfer/',
+      merchant: '/api/merchant/',
+      face_auth: '/api/face-auth/',
+      market_data: '/api/market-data/',
+      transactions: '/api/transactions/'
+    }
+  };
+}
+
+// Debug logging
+console.log('Extension Config:', window.EXTENSION_CONFIG);
+console.log('API Base URL:', window.EXTENSION_CONFIG.API_BASE_URL);
 
 document.addEventListener('DOMContentLoaded', async () => {
+  console.log('DOM Content Loaded');
+  
   // Clear payment badge when popup opens
   chrome.runtime.sendMessage({ type: 'CLEAR_PAYMENT_BADGE' });
+  
+  // Check if elements exist
+  console.log('Elements found:', {
+    loginBtn: !!document.getElementById('loginBtn'),
+    usernameField: !!document.getElementById('username'),
+    passwordField: !!document.getElementById('password'),
+    loginSection: !!document.getElementById('login-section'),
+    walletSection: !!document.getElementById('wallet-section')
+  });
   
   // Handle extension closure during payment or payment setup
   window.addEventListener('beforeunload', async () => {
@@ -229,13 +247,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   async function login(username, password) {
     try {
+      console.log('Attempting login with:', { username, api_url: `${EXTENSION_CONFIG.API_BASE_URL}/api/login/` });
+      
       const res = await fetch(`${EXTENSION_CONFIG.API_BASE_URL}/api/login/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
       });
+      
+      console.log('Login response status:', res.status);
       const data = await res.json();
-      console.log('Login response:', data);
+      console.log('Login response data:', data);
       
       if (data.token) {
         await setToken(data.token);
@@ -313,15 +335,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     return await res.json();
   }
   async function manualTransfer(token, toAddress, amount) {
-    const res = await fetch(`${EXTENSION_CONFIG.API_BASE_URL}/api/transfer/`, {
+    // Use createTransaction for wallet-to-wallet transfers
+    const res = await fetch(`${EXTENSION_CONFIG.API_BASE_URL}/api/transactions/`, {
       method: 'POST',
       headers: {
-        'Authorization': `Token ${token}`,
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ merchant_name: toAddress, amount, face_ok: true })
+      body: JSON.stringify({ 
+        to_address: toAddress, 
+        amount: parseFloat(amount),
+        crypto_symbol: 'ARC',
+        transaction_type: 'transfer',
+        memo: `Manual transfer to ${toAddress}`
+      })
     });
-    return await res.json();
+    const result = await res.json();
+    console.log('Manual transfer result:', result);
+    return result;
   }
   
   async function processMerchantPayment(token, merchantName, amount, cryptoSymbol = 'ARC') {
@@ -349,6 +380,28 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function fetchMerchantWallet(merchantName) {
     const res = await fetch(`${EXTENSION_CONFIG.API_BASE_URL}/api/merchant/${merchantName}/`);
     return await res.json();
+  }
+  
+  async function fetchTransactionHistory(token) {
+    try {
+      const res = await fetch(`${EXTENSION_CONFIG.API_BASE_URL}/api/transactions/`, {
+        method: 'GET',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+      
+      const data = await res.json();
+      return data.transactions || [];
+    } catch (error) {
+      console.error('fetchTransactionHistory error:', error);
+      return [];
+    }
   }
 
   // Section helpers
@@ -569,6 +622,29 @@ document.addEventListener('DOMContentLoaded', async () => {
           ).join('');
         }
         
+        // Load transaction history
+        const transactions = await fetchTransactionHistory(token);
+        const transactionHistory = document.getElementById('transaction-history');
+        if (transactionHistory) {
+          if (transactions.length > 0) {
+            transactionHistory.innerHTML = transactions.slice(0, 5).map(tx => 
+              `<div class="transaction-item">
+                <div class="transaction-header">
+                  <span class="transaction-type">${tx.transaction_type || 'Transfer'}</span>
+                  <span class="transaction-amount">${tx.amount > 0 ? '+' : ''}${tx.amount} ${tx.crypto_symbol || 'ARC'}</span>
+                </div>
+                <div class="transaction-details">
+                  <div>To: ${tx.to_address ? tx.to_address.substring(0, 20) + '...' : 'N/A'}</div>
+                  <div class="transaction-hash">Tx: ${tx.transaction_hash ? tx.transaction_hash.substring(0, 16) + '...' : 'Pending'}</div>
+                  <div>Status: ${tx.status || 'pending'}</div>
+                </div>
+              </div>`
+            ).join('');
+          } else {
+            transactionHistory.innerHTML = '<p class="loading-text">No transactions yet</p>';
+          }
+        }
+        
         if (manualReceiveAddress) {
           manualReceiveAddress.innerText = wallet.public_key || 'Not available';
         }
@@ -583,12 +659,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   if (loginBtn) loginBtn.onclick = async () => {
+    console.log('Login button clicked');
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
+    
+    console.log('Login credentials:', { username: username ? 'provided' : 'empty', password: password ? 'provided' : 'empty' });
+    
+    if (!username || !password) {
+      document.getElementById('loginError').innerText = 'Please enter both username and password';
+      return;
+    }
+    
     try {
+      console.log('Calling login function...');
       await login(username, password);
+      console.log('Login successful, initializing wallet...');
       await initWalletFlow();
     } catch (e) {
+      console.error('Login failed:', e);
       document.getElementById('loginError').innerText = e.message || 'Login failed';
     }
   };
@@ -618,12 +706,64 @@ document.addEventListener('DOMContentLoaded', async () => {
     const token = await getToken();
     const toAddress = manualToAddress.value;
     const amount = manualAmount.value;
-    manualStatus.innerText = 'Processing...';
-    const result = await manualTransfer(token, toAddress, amount);
-    if (result.message) {
-      manualStatus.innerText = result.message;
-    } else {
-      manualStatus.innerText = result.error || 'Transfer failed.';
+    
+    // Validate inputs
+    if (!toAddress || !amount) {
+      manualStatus.innerText = 'Please enter both address and amount.';
+      return;
+    }
+    
+    if (parseFloat(amount) <= 0) {
+      manualStatus.innerText = 'Amount must be greater than 0.';
+      return;
+    }
+    
+    manualStatus.innerText = 'Processing transfer...';
+    
+    try {
+      const result = await manualTransfer(token, toAddress, amount);
+      
+      if (result.transaction_hash) {
+        manualStatus.innerText = `✅ Transfer successful!\nTx Hash: ${result.transaction_hash.substring(0, 20)}...\nAmount: ${amount} ARC`;
+        
+        // Clear form
+        manualToAddress.value = '';
+        manualAmount.value = '';
+        
+        // Update wallet balance
+        const updatedWallet = await fetchWallet(token);
+        if (updatedWallet && balanceEl) {
+          balanceEl.innerText = 'Balance: ' + updatedWallet.balance;
+        }
+        
+        // Refresh transaction history
+        const transactions = await fetchTransactionHistory(token);
+        const transactionHistory = document.getElementById('transaction-history');
+        if (transactionHistory) {
+          if (transactions.length > 0) {
+            transactionHistory.innerHTML = transactions.slice(0, 5).map(tx => 
+              `<div class="transaction-item">
+                <div class="transaction-header">
+                  <span class="transaction-type">${tx.transaction_type || 'Transfer'}</span>
+                  <span class="transaction-amount">${tx.amount > 0 ? '+' : ''}${tx.amount} ${tx.crypto_symbol || 'ARC'}</span>
+                </div>
+                <div class="transaction-details">
+                  <div>To: ${tx.to_address ? tx.to_address.substring(0, 20) + '...' : 'N/A'}</div>
+                  <div class="transaction-hash">Tx: ${tx.transaction_hash ? tx.transaction_hash.substring(0, 16) + '...' : 'Pending'}</div>
+                  <div>Status: ${tx.status || 'pending'}</div>
+                </div>
+              </div>`
+            ).join('');
+          } else {
+            transactionHistory.innerHTML = '<p class="loading-text">No transactions yet</p>';
+          }
+        }
+      } else {
+        manualStatus.innerText = 'Transfer failed: ' + (result.error || result.message || 'Unknown error');
+      }
+    } catch (error) {
+      console.error('Manual transfer error:', error);
+      manualStatus.innerText = 'Transfer failed: ' + error.message;
     }
   };
   if (showMerchantWallet) showMerchantWallet.onclick = () => {

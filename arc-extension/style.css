@@ -248,6 +248,73 @@ body {
   min-width: 200px;
 }
 
+/* Transaction History */
+.transaction-history-container {
+  margin-bottom: 24px;
+  width: 250px;
+}
+
+.transaction-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  min-width: 200px;
+}
+
+.transaction-item {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 18px;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.1);
+  transition: background-color 0.2s ease;
+}
+
+.transaction-item:last-child {
+  border-bottom: none;
+}
+
+.transaction-item:hover {
+  background: rgba(139, 92, 246, 0.05);
+}
+
+.transaction-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.transaction-type {
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.transaction-amount {
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.transaction-details {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 2px;
+}
+
+.transaction-hash {
+  font-family: 'Courier New', monospace;
+  word-break: break-all;
+}
+
+.loading-text {
+  padding: 20px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+}
+
 .crypto-item {
   display: flex;
   justify-content: space-between;
@@ -494,4 +561,24 @@ body {
     width: 100%;
     min-height: 100vh;
   }
+}
+
+/* Wider Manual Transfer and Merchant Sections */
+.manual-section {
+  max-width: 600px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.merchant-section {
+  max-width: 600px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* Wider Login Section */
+.login-section {
+  max-width: 600px;
+  width: 100%;
+  margin: 0 auto;
 }

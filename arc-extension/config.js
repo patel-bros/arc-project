@@ -40,7 +40,7 @@ const CONFIG = {
 };
 
 // Determine current environment (updated by build scripts)
-const CURRENT_ENV = 'production'; // Changed by build.bat/build.sh
+const CURRENT_ENV = 'development'; // Changed by build.bat/build.sh
 
 // Export the current configuration
 const EXTENSION_CONFIG = CONFIG[CURRENT_ENV];
