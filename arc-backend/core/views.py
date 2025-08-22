@@ -170,6 +170,36 @@ def login(request):
     except Exception as e:
         return Response({'error': f'Login failed: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+# User profile endpoint
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.permissions import IsAuthenticated
+
+@api_view(['GET'])
+@authentication_classes([SimpleTokenAuthentication])
+@permission_classes([IsAuthenticated])
+def user_profile(request):
+    user = request.user
+    return Response({
+        'name': user.username,
+        'email': user.email,
+        'phone': getattr(user, 'phone', ''),
+        'country': getattr(user, 'country', ''),
+        'timezone': getattr(user, 'timezone', ''),
+        'language': getattr(user, 'language', '')
+    })
+
+# User face photo endpoint
+@api_view(['GET'])
+@authentication_classes([SimpleTokenAuthentication])
+@permission_classes([IsAuthenticated])
+def user_face_photo(request):
+    import base64
+    user = request.user
+    face_data = FaceData.objects(user=user).first()
+    photo_b64 = ''
+    return Response({'photo_b64': photo_b64})
+
 # Portfolio and wallet management
 @api_view(['GET'])
 def get_portfolio(request):
@@ -231,6 +261,89 @@ def get_portfolio(request):
         return Response({'error': f'Failed to get portfolio: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # Trading and market data
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def price_history(request):
+    """
+    Returns price history for a given trading pair (e.g., BTCUSDT) for charting.
+    Query param: pair=BTCUSDT
+    Output: [{timestamp, price, volume}, ...]
+    """
+    pair_name = request.GET.get('pair', None)
+    print(f"[price_history] Requested pair: {pair_name}")
+    if not pair_name:
+        print("[price_history] Missing pair parameter.")
+        return Response({'error': 'Missing pair parameter.'}, status=400)
+    trading_pair = TradingPair.objects(pair=pair_name).first()
+    print(f"[price_history] TradingPair found: {trading_pair}")
+    if not trading_pair:
+        print(f"[price_history] Trading pair not found: {pair_name}")
+        return Response({'error': 'Trading pair not found.'}, status=404)
+    # Try to get last 100 price points from PriceHistory
+    history_qs = PriceHistory.objects(pair=trading_pair).order_by('-timestamp')[:100]
+    print(f"[price_history] PriceHistory count: {len(history_qs)}")
+    if history_qs:
+        history = [
+            {
+                'timestamp': ph.timestamp.strftime('%Y-%m-%d %H:%M'),
+                'price': ph.price,
+                'volume': ph.volume
+            }
+            for ph in reversed(history_qs)
+        ]
+        print(f"[price_history] Returning DB history, count: {len(history)}")
+        return Response({'history': history}, status=200)
+    # If no DB history, try CoinCap API v3 with API key
+    import requests
+    coincap_map = {
+        'BTCUSDT': 'bitcoin',
+        'ETHUSDT': 'ethereum',
+        'LTCUSDT': 'litecoin',
+        'BCHUSDT': 'bitcoin-cash',
+        'DOGEUSDT': 'dogecoin',
+        'BNBUSDT': 'binance-coin',
+        'ADAUSDT': 'cardano',
+        'DOTUSDT': 'polkadot',
+        'LINKUSDT': 'chainlink',
+        'ARCUSDT': 'arc'  # If listed on CoinCap
+    }
+    asset = coincap_map.get(pair_name)
+    api_key = '62651e25b2334fea9dd4093de72720aadcb872020741570f813722c3346df9c0'
+    if asset:
+        try:
+            url = f'https://rest.coincap.io/v3/assets/{asset}/history?interval=h1&apiKey={api_key}'
+            resp = requests.get(url, timeout=10)
+            data = resp.json()
+            prices = data.get('data', [])
+            # prices: [{priceUsd, time, ...}, ...]
+            history = [
+                {
+                    'timestamp': datetime.utcfromtimestamp(int(row['time']/1000)).strftime('%Y-%m-%d %H:%M'),
+                    'price': float(row['priceUsd']),
+                    'volume': None
+                }
+                for row in prices[-100:] if 'priceUsd' in row and 'time' in row
+            ]
+            print(f"[price_history] Returning CoinCap v3 history, count: {len(history)}")
+            return Response({'history': history}, status=200)
+        except Exception as e:
+            print(f"[price_history] CoinCap v3 error: {e}")
+    # Fallback: generate runtime history from market data
+    now = datetime.utcnow()
+    points = []
+    base_price = trading_pair.current_price
+    for i in range(100):
+        ts = now - timedelta(minutes=99-i)
+        price = base_price * (1 + random.uniform(-0.01, 0.01))
+        volume = trading_pair.volume_24h * random.uniform(0.8, 1.2) / 100
+        points.append({
+            'timestamp': ts.strftime('%Y-%m-%d %H:%M'),
+            'price': round(price, 8),
+            'volume': round(volume, 2)
+        })
+        base_price = price
+    print(f"[price_history] Returning simulated history, count: {len(points)}")
+    return Response({'history': points}, status=200)
 @api_view(['GET'])
 def get_market_data(request):
     try:

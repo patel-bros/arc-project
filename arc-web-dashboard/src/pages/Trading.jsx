@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import axios from 'axios';
 import Layout from '../components/Layout'
 
 const Trading = () => {
@@ -9,14 +11,18 @@ const Trading = () => {
   const [quantity, setQuantity] = useState('')
   const [orderBook, setOrderBook] = useState({ bids: [], asks: [] })
   const [recentTrades, setRecentTrades] = useState([])
+  const [priceHistory, setPriceHistory] = useState([])
+  const [loadingChart, setLoadingChart] = useState(false)
+  const [btcPrice, setBtcPrice] = useState(null)
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api';
   
-  const tradingPairs = [
+  const [tradingPairs, setTradingPairs] = useState([
     { pair: 'BTCUSDT', price: 43250.50, change: '+2.45%', volume: '1.2M' },
     { pair: 'ETHUSDT', price: 2650.80, change: '+1.85%', volume: '850K' },
     { pair: 'ARCUSDT', price: 125.40, change: '+5.20%', volume: '500K' },
     { pair: 'BNBUSDT', price: 315.60, change: '-0.75%', volume: '320K' },
     { pair: 'ADAUSDT', price: 0.485, change: '+3.15%', volume: '180K' },
-  ]
+  ])
 
   const mockOrderBook = {
     bids: [
@@ -46,7 +52,40 @@ const Trading = () => {
   useEffect(() => {
     setOrderBook(mockOrderBook)
     setRecentTrades(mockTrades)
-  }, [selectedPair])
+    // Fetch price history for selected pair
+    const fetchPriceHistory = async () => {
+      setLoadingChart(true);
+      try {
+        const res = await axios.get(`${API_BASE}/price-history/?pair=${selectedPair}`);
+        // Expecting [{timestamp, price}, ...]
+        const history = res.data.history || [];
+        setPriceHistory(history);
+        // If BTCUSDT, update BTC price in tradingPairs
+        if (selectedPair === 'BTCUSDT' && history.length > 0) {
+          const latestPrice = history[history.length - 1].price;
+          setBtcPrice(latestPrice);
+          setTradingPairs(prevPairs => prevPairs.map(pair =>
+            pair.pair === 'BTCUSDT' ? { ...pair, price: latestPrice } : pair
+          ));
+        }
+      } catch (err) {
+        setPriceHistory([]);
+      }
+      setLoadingChart(false);
+    };
+    fetchPriceHistory();
+
+    // Set up periodic refresh for BTC price
+    let interval = null;
+    if (selectedPair === 'BTCUSDT') {
+      interval = setInterval(() => {
+        fetchPriceHistory();
+      }, 30000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [selectedPair]);
 
   const handlePlaceOrder = () => {
     // Implement order placement logic
@@ -107,18 +146,33 @@ const Trading = () => {
               ))}
             </div>
           </div>
-          
-          {/* Placeholder for TradingView Chart */}
           <div className="h-96 bg-gradient-to-br from-purple-900/20 to-blue-900/20 rounded-xl flex items-center justify-center border border-purple-500/10">
-            <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-xl bg-purple-500/20 flex items-center justify-center">
-                <svg className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
+            {loadingChart ? (
+              <div className="text-center">
+                <div className="w-8 h-8 border-2 border-purple-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-purple-400 font-medium">Loading chart...</p>
               </div>
-              <p className="text-gray-400 font-medium">TradingView Chart Integration</p>
-              <p className="text-gray-500 text-sm mt-2">Real-time price chart for {selectedPair}</p>
-            </div>
+            ) : priceHistory.length > 0 ? (
+              <ResponsiveContainer width="100%" height={350}>
+                <LineChart data={priceHistory} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#8b5cf6" />
+                  <XAxis dataKey="timestamp" tick={{ fill: '#a5b4fc', fontSize: 12 }} />
+                  <YAxis tick={{ fill: '#a5b4fc', fontSize: 12 }} domain={['auto', 'auto']} />
+                  <Tooltip contentStyle={{ background: '#1e1b4b', border: '1px solid #8b5cf6', color: '#fff' }} labelStyle={{ color: '#8b5cf6' }} />
+                  <Line type="monotone" dataKey="price" stroke="#8b5cf6" strokeWidth={3} dot={false} isAnimationActive={true} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="text-center">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                  <svg className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <p className="text-gray-400 font-medium">No price history available</p>
+                <p className="text-gray-500 text-sm mt-2">Real-time price chart for {selectedPair}</p>
+              </div>
+            )}
           </div>
         </div>
 

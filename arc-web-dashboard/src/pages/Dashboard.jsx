@@ -6,6 +6,7 @@ const Dashboard = () => {
   const [portfolioData, setPortfolioData] = useState(null)
   const [marketData, setMarketData] = useState([])
   const [recentActivity, setRecentActivity] = useState([])
+  const [wallets, setWallets] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -37,31 +38,29 @@ const Dashboard = () => {
             const portfolio = portfolioResponse.data.portfolio
 
             // Calculate portfolio metrics
-            const wallets = portfolio.wallets || []
-            const totalValue = portfolio.total_value_usd || 0
-            
+            const walletsArr = portfolio.wallets || [];
+            setWallets(walletsArr);
+            const totalValue = portfolio.total_value_usd || 0;
             // Find top gainer and loser
-            let topGainer = { symbol: 'N/A', change: 0 }
-            let topLoser = { symbol: 'N/A', change: 0 }
-            
-            wallets.forEach(wallet => {
+            let topGainer = { symbol: 'N/A', change: 0 };
+            let topLoser = { symbol: 'N/A', change: 0 };
+            walletsArr.forEach(wallet => {
               // Mock day change calculation (in real app, you'd track this)
-              const dayChange = (Math.random() - 0.5) * 10 // Random change between -5% and +5%
+              const dayChange = (Math.random() - 0.5) * 10;
               if (dayChange > topGainer.change) {
-                topGainer = { symbol: wallet.symbol, change: dayChange }
+                topGainer = { symbol: wallet.symbol, change: dayChange };
               }
               if (dayChange < topLoser.change) {
-                topLoser = { symbol: wallet.symbol, change: dayChange }
+                topLoser = { symbol: wallet.symbol, change: dayChange };
               }
-            })
-
+            });
             setPortfolioData({
               totalValue: totalValue,
-              dayChange: totalValue * 0.05, // Mock 5% daily change
+              dayChange: totalValue * 0.05,
               dayChangePercent: 5.0,
               topGainer,
               topLoser
-            })
+            });
 
             // Fetch transaction history for recent activity
             console.log('Dashboard: Fetching transactions...')
@@ -70,17 +69,32 @@ const Dashboard = () => {
               console.log('Dashboard: Transactions response:', transactionsResponse.data)
               const transactions = transactionsResponse.data.transactions || []
               
-              const formattedActivity = transactions.slice(0, 5).map(tx => ({
-                type: getActivityType(tx.transaction_type, tx.amount),
-                symbol: tx.crypto_symbol,
-                amount: Math.abs(tx.amount),
-                price: 0, // Would need current price lookup
-                value: 0, // Would calculate from amount * price
-                timestamp: formatTimestamp(tx.created_at),
-                status: tx.status === 'confirmed' ? 'completed' : tx.status
-              }))
-
-              setRecentActivity(formattedActivity)
+              // Transaction labeling: Sent/Received
+              const currentUserWallets = walletsArr.map(w => w.address);
+              const formattedActivity = transactions.slice(0, 5).map(tx => {
+                let activityType = '';
+                if (tx.transaction_type === 'transfer') {
+                  if (currentUserWallets.includes(tx.sender_wallet)) {
+                    activityType = 'sent';
+                  } else if (currentUserWallets.includes(tx.recipient_wallet)) {
+                    activityType = 'received';
+                  } else {
+                    activityType = 'other';
+                  }
+                } else {
+                  activityType = getActivityType(tx.transaction_type, tx.amount);
+                }
+                return {
+                  type: activityType,
+                  symbol: tx.crypto_symbol,
+                  amount: Math.abs(tx.amount),
+                  price: 0,
+                  value: 0,
+                  timestamp: formatTimestamp(tx.created_at),
+                  status: tx.status === 'confirmed' ? 'completed' : tx.status
+                };
+              });
+              setRecentActivity(formattedActivity);
             } catch (txError) {
               console.error('Dashboard: Error fetching transactions:', txError)
               setRecentActivity([])
@@ -222,13 +236,10 @@ const Dashboard = () => {
 
   const getActivityType = (transactionType, amount) => {
     if (transactionType === 'trade') {
-      return amount > 0 ? 'buy' : 'sell'
+      return amount > 0 ? 'buy' : 'sell';
     }
-    if (transactionType === 'transfer') {
-      return amount > 0 ? 'receive' : 'send'
-    }
-    return transactionType
-  }
+    return transactionType;
+  } // transfer handled above
 
   const formatTimestamp = (timestamp) => {
     const date = new Date(timestamp)
@@ -329,7 +340,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Portfolio Overview */}
+        {/* Portfolio Overview - Top Gainer, Top Loser, Live Market Data */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6 hover:border-purple-400/40 transition-all duration-300">
             <div className="flex items-center justify-between mb-2">
@@ -341,12 +352,12 @@ const Dashboard = () => {
               </div>
             </div>
             <p className="text-3xl font-bold text-white mb-1 font-mono">{formatCurrency(portfolioData.totalValue)}</p>
-            <p className={`text-sm font-medium font-mono ${portfolioData.dayChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+            <p className={`text-sm font-medium font-mono ${portfolioData.dayChange >= 0 ? 'text-green-400' : 'text-red-400'}`}> 
               {portfolioData.dayChange >= 0 ? '+' : ''}{formatCurrency(portfolioData.dayChange)} ({formatPercentage(portfolioData.dayChangePercent)})
             </p>
           </div>
 
-          <div className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6 hover:border-green-400/40 transition-all duration-300">
+          <div className="bg-black/20 backdrop-blur-xl rounded-2xl border border-green-500/20 p-6 hover:border-green-400/40 transition-all duration-300">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-gray-300 text-sm font-medium">Top Gainer</h3>
               <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
@@ -359,7 +370,7 @@ const Dashboard = () => {
             <p className="text-green-400 text-sm font-medium font-mono">+{formatPercentage(Math.abs(portfolioData.topGainer.change))}</p>
           </div>
 
-          <div className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6 hover:border-red-400/40 transition-all duration-300">
+          <div className="bg-black/20 backdrop-blur-xl rounded-2xl border border-red-500/20 p-6 hover:border-red-400/40 transition-all duration-300">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-gray-300 text-sm font-medium">Top Loser</h3>
               <div className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center">
@@ -372,7 +383,7 @@ const Dashboard = () => {
             <p className="text-red-400 text-sm font-medium">{formatPercentage(portfolioData.topLoser.change)}</p>
           </div>
 
-          <div className="bg-black/20 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6 hover:border-blue-400/40 transition-all duration-300">
+          <div className="bg-black/20 backdrop-blur-xl rounded-2xl border border-blue-500/20 p-6 hover:border-blue-400/40 transition-all duration-300">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-gray-300 text-sm font-medium">Live Market Data</h3>
               <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
@@ -461,7 +472,11 @@ const Dashboard = () => {
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                       activity.type === 'buy' ? 'bg-green-500/20 border border-green-500/30' :
                       activity.type === 'sell' ? 'bg-red-500/20 border border-red-500/30' :
-                      'bg-blue-500/20 border border-blue-500/30'
+                      (activity.type === 'sent' && activity.symbol === 'ARC') ? 'bg-orange-500/20 border border-orange-500/30' :
+                      (activity.type === 'received' && activity.symbol === 'ARC') ? 'bg-blue-500/20 border border-blue-500/30' :
+                      activity.type === 'sent' ? 'bg-orange-500/10 border border-orange-500/20' :
+                      activity.type === 'received' ? 'bg-blue-500/10 border border-blue-500/20' :
+                      'bg-gray-500/20 border border-gray-500/30'
                     }`}>
                       {activity.type === 'buy' ? (
                         <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -471,15 +486,31 @@ const Dashboard = () => {
                         <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 13l-5 5m0 0l-5-5m5 5V6" />
                         </svg>
-                      ) : (
+                      ) : (activity.type === 'sent' && activity.symbol === 'ARC') ? (
+                        <svg className="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 12H5M12 19l-7-7 7-7" />
+                        </svg>
+                      ) : (activity.type === 'received' && activity.symbol === 'ARC') ? (
                         <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h18" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" />
+                        </svg>
+                      ) : activity.type === 'sent' ? (
+                        <svg className="w-5 h-5 text-orange-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 13l-5 5m0 0l-5-5m5 5V6" />
+                        </svg>
+                      ) : activity.type === 'received' ? (
+                        <svg className="w-5 h-5 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="none" />
                         </svg>
                       )}
                     </div>
                     <div>
                       <p className="text-white text-sm font-medium">
-                        {activity.type === 'buy' ? 'Bought' : activity.type === 'sell' ? 'Sold' : 'Received'} {activity.symbol}
+                        {activity.type === 'buy' ? 'Bought' : activity.type === 'sell' ? 'Sold' : activity.type === 'sent' ? 'Sent' : activity.type === 'received' ? 'Received' : 'Other'} {activity.symbol}
                       </p>
                       <p className="text-gray-400 text-xs">{activity.timestamp}</p>
                     </div>

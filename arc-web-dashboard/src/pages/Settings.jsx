@@ -1,16 +1,35 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import axios from 'axios'
 import Layout from '../components/Layout'
 
 const Settings = () => {
   const [activeSection, setActiveSection] = useState('profile')
   const [profileData, setProfileData] = useState({
-    name: 'John Doe',
-    email: 'john.doe@example.com',
-    phone: '+1 (555) 123-4567',
-    country: 'United States',
-    timezone: 'UTC-5 (EST)',
-    language: 'English'
+    name: '',
+    email: '',
+    phone: '',
+    country: '',
+    timezone: '',
+    language: ''
   })
+  const [profilePhoto, setProfilePhoto] = useState('')
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const token = localStorage.getItem('token')
+        const headers = token ? { Authorization: `Bearer ${token}` } : {}
+        // Fetch user details
+        const userRes = await axios.get(`${import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api'}/user/profile/`, { headers })
+        setProfileData(userRes.data)
+  // Fetch profile photo from MongoDB face_data (base64)
+  const faceRes = await axios.get(`${import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api'}/user/face-photo/`, { headers })
+  setProfilePhoto(faceRes.data.photo_b64)
+      } catch (err) {
+        console.error('Settings: Error fetching profile:', err)
+      }
+    }
+    fetchProfile()
+  }, [])
 
   const [securitySettings, setSecuritySettings] = useState({
     twoFactorEnabled: true,
@@ -141,6 +160,21 @@ const Settings = () => {
           {activeSection === 'profile' && (
             <div>
               <h3 className="text-white font-semibold text-2xl mb-6">Profile Settings</h3>
+              <div className="flex items-center mb-8">
+                {profilePhoto ? (
+                  <img src={`data:image/jpeg;base64,${profilePhoto}`} alt="Profile" className="w-20 h-20 rounded-full object-cover border-4 border-purple-500 mr-6" />
+                ) : (
+                  <div className="w-20 h-20 rounded-full bg-gray-700 border-4 border-purple-500 mr-6 flex items-center justify-center">
+                    <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                )}
+                <div>
+                  <h4 className="text-white text-xl font-bold">{profileData.name || 'User'}</h4>
+                  <p className="text-gray-400">{profileData.email}</p>
+                </div>
+              </div>
               
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
