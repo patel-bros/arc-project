@@ -68,7 +68,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     console.log('Payment status:', request.payload);
     
     // Relay payment status to the merchant site (Curve) via content script
-    chrome.tabs.query({ url: ["http://localhost:5173/*", "http://127.0.0.1:5173/*"] }, function (tabs) {
+    chrome.tabs.query({ url: ["http://localhost:5173/*", "http://127.0.0.1:5173/*","https://curve.rudraa.me/*"] }, function (tabs) {
       if (tabs && tabs.length > 0) {
         // Found Curve tab, send message to content script
         console.log('Found Curve tab:', tabs[0].id);

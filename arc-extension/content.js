@@ -59,7 +59,7 @@ function attachDynamicPayObservers() {
       const amount = window.__ARC_CART_TOTAL || parseFloat(btn.getAttribute('data-amount')) || 0;
       window.postMessage({
         type: 'ARC_PAYMENT_REQUEST',
-        payload: { amount, merchant_id: 'curve-merchant', ts: Date.now() }
+        payload: { amount, merchant_id: 'curve-merchant-1', ts: Date.now() }
       }, '*');
     });
   };
@@ -79,6 +79,6 @@ attachDynamicPayObservers();
 // Expose a small API hook for merchant pages
 window.ArcPay = {
   pay: ({ amount, items }) => {
-    window.postMessage({ type: 'ARC_PAYMENT_REQUEST', payload: { amount, items, merchant_id: 'curve-merchant', ts: Date.now() } }, '*');
+    window.postMessage({ type: 'ARC_PAYMENT_REQUEST', payload: { amount, items, merchant_id: 'curve-merchant-1', ts: Date.now() } }, '*');
   }
 };

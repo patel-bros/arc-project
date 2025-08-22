@@ -1,6 +1,6 @@
 ﻿// Load configuration (config.js should be loaded before this script in manifest.json)
 const EXTENSION_CONFIG = window.EXTENSION_CONFIG || {
-  API_BASE_URL: 'http://localhost:8000',
+  API_BASE_URL: 'https://arc-backend-production-5f89.up.railway.app',
   API_ENDPOINTS: {
     login: '/api/login/',
     register: '/api/register/',
