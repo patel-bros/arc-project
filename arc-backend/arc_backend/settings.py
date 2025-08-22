@@ -12,6 +12,10 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env files
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -21,10 +25,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-_@&hc_a)7jr9hh8zsn4%b$m(ltc18rtp@&h!h+_fn7-7y4*38@')
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-_@&hc_a)7jr9hh8zsn4%b$m(ltc18rtp@&h!h+_fn7-7y4*38@')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
+DEBUG = os.environ.get('DJANGO_DEBUG', 'false').lower() == 'true'
 
 # Allow all hosts for deployment (configure this properly in production)
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
@@ -84,8 +88,8 @@ import mongoengine
 
 # Connect to MongoDB
 mongoengine.connect(
-    db="arc_project_db",
-    host="mongodb+srv://mhpatel2026:cK1qVytOLGSfMrTo@cluster0.esrxrmi.mongodb.net/arc_project_db?retryWrites=true&w=majority&appName=Cluster0",
+    db=os.environ.get('DB_NAME', 'arc_project_db'),
+    host=os.environ.get('MONGODB_URI', "mongodb+srv://mhpatel2026:cK1qVytOLGSfMrTo@cluster0.esrxrmi.mongodb.net/arc_project_db?retryWrites=true&w=majority&appName=Cluster0"),
     ssl=True,
     alias='default',  # Explicitly set the default alias
     connectTimeoutMS=30000,  # 30 seconds connection timeout
@@ -106,16 +110,10 @@ DATABASES = {
 }
 
 # CORS Settings
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5173",
-    "http://localhost:5174",
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:5174",
-]
+CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ALLOWED_ORIGINS', 
+    'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173').split(',')
 
-CORS_ALLOW_ALL_ORIGINS = True  # For development only
+CORS_ALLOW_ALL_ORIGINS = os.environ.get('CORS_ALLOW_ALL_ORIGINS', 'true').lower() == 'true'
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOW_HEADERS = [

@@ -44,7 +44,7 @@ const Register = () => {
       formData.append("email", form.email)
       formData.append("password", form.password)
       if (image) formData.append("image", image)
-      const res = await axios.post("http://127.0.0.1:8000/api/register/", formData, {
+      const res = await axios.post(`${import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api'}/register/`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       })
       alert("Registration successful!")

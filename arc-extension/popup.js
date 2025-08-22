@@ -1,3 +1,19 @@
+﻿// Load configuration (config.js should be loaded before this script in manifest.json)
+const EXTENSION_CONFIG = window.EXTENSION_CONFIG || {
+  API_BASE_URL: 'http://localhost:8000',
+  API_ENDPOINTS: {
+    login: '/api/login/',
+    register: '/api/register/',
+    portfolio: '/api/portfolio/',
+    wallet: '/api/wallet/',
+    transfer: '/api/transfer/',
+    merchant: '/api/merchant/',
+    face_auth: '/api/face-auth/',
+    market_data: '/api/market-data/',
+    transactions: '/api/transactions/'
+  }
+};
+
 document.addEventListener('DOMContentLoaded', async () => {
   // Clear payment badge when popup opens
   chrome.runtime.sendMessage({ type: 'CLEAR_PAYMENT_BADGE' });
@@ -12,7 +28,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
           const token = await getToken();
           if (token) {
-            await fetch('http://localhost:8000/api/transactions/cancel/', {
+            await fetch(`${EXTENSION_CONFIG.API_BASE_URL}/api/transactions/cancel/`, {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${token}`,
@@ -47,7 +63,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
           const token = await getToken();
           if (token) {
-            await fetch('http://localhost:8000/api/transactions/cancel/', {
+            await fetch(`${EXTENSION_CONFIG.API_BASE_URL}/api/transactions/cancel/`, {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${token}`,
@@ -138,7 +154,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function fetchPortfolio(token) {
     try {
       console.log('Fetching portfolio with token:', token);
-      const res = await fetch('http://localhost:8000/api/portfolio/', {
+      const res = await fetch(`${EXTENSION_CONFIG.API_BASE_URL}/api/portfolio/`, {
         method: 'GET',
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -202,7 +218,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   async function fetchCryptos() {
     try {
-      const res = await fetch('http://localhost:8000/api/market-data/');
+      const res = await fetch(`${EXTENSION_CONFIG.API_BASE_URL}/api/market-data/`);
       const data = await res.json();
       console.log('Market data API response:', data);
       return data.market_data || [];
@@ -213,7 +229,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   async function login(username, password) {
     try {
-      const res = await fetch('http://localhost:8000/api/login/', {
+      const res = await fetch(`${EXTENSION_CONFIG.API_BASE_URL}/api/login/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
@@ -234,7 +250,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   async function register(username, email, password) {
     try {
-      const res = await fetch('http://localhost:8000/api/register/', {
+      const res = await fetch(`${EXTENSION_CONFIG.API_BASE_URL}/api/register/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, email, password })
@@ -254,7 +270,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
   async function logout(token) {
-    await fetch('http://localhost:8000/api/logout/', {
+    await fetch(`${EXTENSION_CONFIG.API_BASE_URL}/api/logout/`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` }
     });
@@ -264,10 +280,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log('faceAuth called with token:', token); // Debug log
     const formData = new FormData();
     formData.append('image', imageData);
-    console.log('Sending face auth request to:', 'http://localhost:8000/api/face-auth/'); // Debug log
+    console.log('Sending face auth request to:', `${EXTENSION_CONFIG.API_BASE_URL}/api/face-auth/`); // Debug log
     console.log('Authorization header:', `Bearer ${token}`); // Debug log
     
-    const res = await fetch('http://localhost:8000/api/face-auth/', {
+    const res = await fetch(`${EXTENSION_CONFIG.API_BASE_URL}/api/face-auth/`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` },
       body: formData
@@ -280,7 +296,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     return responseData.face_ok;
   }
   async function createTransaction(token, toAddress, amount, transactionType = 'transfer') {
-    const res = await fetch('http://localhost:8000/api/transactions/', {
+    const res = await fetch(`${EXTENSION_CONFIG.API_BASE_URL}/api/transactions/`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -297,7 +313,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     return await res.json();
   }
   async function manualTransfer(token, toAddress, amount) {
-    const res = await fetch('http://localhost:8000/api/transfer/', {
+    const res = await fetch(`${EXTENSION_CONFIG.API_BASE_URL}/api/transfer/`, {
       method: 'POST',
       headers: {
         'Authorization': `Token ${token}`,
@@ -309,7 +325,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   
   async function processMerchantPayment(token, merchantName, amount, cryptoSymbol = 'ARC') {
-    const res = await fetch('http://localhost:8000/api/merchant/payment/', {
+    const res = await fetch(`${EXTENSION_CONFIG.API_BASE_URL}/api/merchant/payment/`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -326,12 +342,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   
   async function fetchMerchantInfo(merchantName) {
-    const res = await fetch(`http://localhost:8000/api/merchant/info/?merchant_name=${merchantName}`);
+    const res = await fetch(`${EXTENSION_CONFIG.API_BASE_URL}/api/merchant/info/?merchant_name=${merchantName}`);
     return await res.json();
   }
   
   async function fetchMerchantWallet(merchantName) {
-    const res = await fetch(`http://localhost:8000/api/merchant/${merchantName}/`);
+    const res = await fetch(`${EXTENSION_CONFIG.API_BASE_URL}/api/merchant/${merchantName}/`);
     return await res.json();
   }
 
@@ -636,7 +652,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       try {
         const token = await getToken();
         if (token) {
-          await fetch('http://localhost:8000/api/transactions/cancel/', {
+          await fetch(`${EXTENSION_CONFIG.API_BASE_URL}/api/transactions/cancel/`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
