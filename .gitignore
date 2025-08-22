@@ -19,3 +19,7 @@ db.sqlite3
 
 #npm
 node_modules
+
+.env
+.env.development
+.env.production
